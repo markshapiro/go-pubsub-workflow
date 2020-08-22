@@ -37,7 +37,7 @@ func main() {
 
 //var count = 0
 
-func foo1(data string, events []pubSubWorkflow.Event) ([]pubSubWorkflow.Publish, []pubSubWorkflow.Event, error) {
+func foo1(data string, events []pubSubWorkflow.Event) ([]pubSubWorkflow.Publish, []pubSubWorkflow.EventTrigger, error) {
 	fmt.Println("####### foo1:", data)
 
 	// time.Sleep(time.Second * 1)
@@ -47,15 +47,19 @@ func foo1(data string, events []pubSubWorkflow.Event) ([]pubSubWorkflow.Publish,
 	// }
 
 	// return pubSubWorkflow.PublishNext("foo2", "1122", "foo2", "111444", "foo3", "333"), nil, nil
-	return pubSubWorkflow.PublishNext("foo2", "1122"), nil, nil
+
+	return pubSubWorkflow.PublishNext("foo2", "1122"), []pubSubWorkflow.EventTrigger{
+		pubSubWorkflow.EventTrigger{[]string{"AA", "BB"}, "foo3", "data1"},
+		pubSubWorkflow.EventTrigger{[]string{"BB", "CC"}, "foo3", "data1"},
+	}, nil
 }
 
-func foo2(data string, events []pubSubWorkflow.Event) ([]pubSubWorkflow.Publish, []pubSubWorkflow.Event, error) {
+func foo2(data string, events []pubSubWorkflow.Event) ([]pubSubWorkflow.Publish, []pubSubWorkflow.EventTrigger, error) {
 	fmt.Println("####### foo2:", data)
 	return nil, nil, nil
 }
 
-func foo3(data string, events []pubSubWorkflow.Event) ([]pubSubWorkflow.Publish, []pubSubWorkflow.Event, error) {
+func foo3(data string, events []pubSubWorkflow.Event) ([]pubSubWorkflow.Publish, []pubSubWorkflow.EventTrigger, error) {
 	fmt.Println("####### foo3:", data)
 	return nil, nil, nil
 }

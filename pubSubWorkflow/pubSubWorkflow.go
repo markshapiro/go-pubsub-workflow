@@ -112,12 +112,12 @@ func (wf pubSubWorkflow) processMsg(msg message) error {
 		return HANDLER_NOT_FOUND
 	}
 
-	cmd := wf.redisConn.HSetNX(fmt.Sprintf("%s.data", msg.CallId), "msgVerificationId", msg.MessageId)
+	cmd := wf.redisConn.HSetNX(fmt.Sprintf("call.%s.data", msg.CallId), "msgVerificationId", msg.MessageId)
 	if cmd.Err() != nil && cmd.Err() != redis.Nil {
 		return cmd.Err()
 	}
 	if cmd.Val() == false {
-		getCmd := wf.redisConn.HGet(fmt.Sprintf("%s.data", msg.CallId), "msgVerificationId")
+		getCmd := wf.redisConn.HGet(fmt.Sprintf("call.%s.data", msg.CallId), "msgVerificationId")
 		if getCmd.Err() != nil && cmd.Err() != redis.Nil {
 			return getCmd.Err()
 		}
@@ -131,20 +131,20 @@ func (wf pubSubWorkflow) processMsg(msg message) error {
 		}
 	}
 
-	nextPublishes, nextEvents, err := handlerFn(msg.Args.Data, msg.Args.Events)
+	nextPublishes, nextEventTriggers, err := handlerFn(msg.Args.Data, msg.Args.Events)
 	if err != nil {
 		return err
 	}
 
-	result := storedResult{nextPublishes, nextEvents}
+	result := storedResult{nextPublishes, nextEventTriggers}
 
-	storeCmd := wf.redisConn.HSetNX(fmt.Sprintf("%s.data", msg.CallId), "result", result)
+	storeCmd := wf.redisConn.HSetNX(fmt.Sprintf("call.%s.data", msg.CallId), "result", result)
 	if storeCmd.Err() != nil && cmd.Err() != redis.Nil {
 		return storeCmd.Err()
 	}
 
 	if cmd.Val() == false {
-		getResultCmd := wf.redisConn.HGet(fmt.Sprintf("%s.data", msg.CallId), "result")
+		getResultCmd := wf.redisConn.HGet(fmt.Sprintf("call.%s.data", msg.CallId), "result")
 		if getResultCmd.Err() != nil && getResultCmd.Err() != redis.Nil {
 			return getResultCmd.Err()
 		}
@@ -156,16 +156,18 @@ func (wf pubSubWorkflow) processMsg(msg message) error {
 		}
 
 		nextPublishes = prevStoredResult.Publishes
-		nextEvents = prevStoredResult.Events
+		nextEventTriggers = prevStoredResult.EventTriggers
 	}
 
-	return wf.triggerNextTasks(msg, nextPublishes, nextEvents)
+	return wf.triggerNextTasks(msg, nextPublishes, nextEventTriggers)
 }
 
-func (wf pubSubWorkflow) triggerNextTasks(msg message, nextPublishes []Publish, nextEvents []Event) error {
+func (wf pubSubWorkflow) triggerNextTasks(msg message, nextPublishes []Publish, nextEventTriggers []EventTrigger) error {
 	subjectCounts := make(map[string]int)
 
-	fmt.Println(msg, "|", nextPublishes)
+	for _, eventTrigger := range nextEventTriggers {
+		wf.redisConn.SAdd(fmt.Sprintf("session.%d.triggers", msg.SessionId), eventTrigger)
+	}
 
 	for _, publish := range nextPublishes {
 		nextCallId := fmt.Sprintf("%d.call.%s.%d", msg.MessageId, publish.Subject, subjectCounts[publish.Subject])
@@ -173,7 +175,7 @@ func (wf pubSubWorkflow) triggerNextTasks(msg message, nextPublishes []Publish, 
 		if err != nil {
 			return err
 		}
-		nextMsg := message{nextCallId, nextMessageId, publish.Subject, Args{publish.Data, nil}}
+		nextMsg := message{nextCallId, nextMessageId, msg.SessionId, publish.Subject, Args{publish.Data, nil}}
 		err = wf.publish(nextMsg, publish.QueueId)
 		if err != nil {
 			return err
@@ -202,7 +204,12 @@ func (wf pubSubWorkflow) Publish(subject, data string, uniqueCallId ...string) e
 		return err
 	}
 
-	err = wf.publish(message{callId, messageId, subject, Args{data, nil}}, "")
+	sessionId, err := wf.getUniqueNum()
+	if err != nil {
+		return err
+	}
+
+	err = wf.publish(message{callId, messageId, sessionId, subject, Args{data, nil}}, "")
 	if err != nil {
 		return err
 	}
@@ -219,7 +226,7 @@ func (wf pubSubWorkflow) Subscribe(subject string, handler handlerFunc) error {
 }
 
 func (wf pubSubWorkflow) getUniqueNum() (int64, error) {
-	cmd := wf.redisConn.Incr("uniqueNum")
+	cmd := wf.redisConn.Incr("pubSubWorkflow.uniqueNum")
 	if cmd.Err() != nil {
 		return 0, cmd.Err()
 	}

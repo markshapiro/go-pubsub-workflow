@@ -10,6 +10,7 @@ import (
 type message struct {
 	CallId    string
 	MessageId int64
+	SessionId int64
 	Subject   string
 	Args      Args
 }
@@ -23,23 +24,38 @@ func (m *message) UnmarshalBinary(data []byte) error {
 }
 
 type Args struct {
-	Data   string  `json:"Data,omitempty"`
-	Events []Event `json:"Events,omitempty"`
+	Data   string  `bson:"Data,omitempty"`
+	Events []Event `bson:"Events,omitempty"`
 }
 
 type Publish struct {
 	QueueId string
 	Subject string
-	Data    string `json:"Data,omitempty"`
+	Data    string `bson:"Data,omitempty"`
 }
+
+type EventTrigger struct {
+	Events  []string
+	Subject string
+	Data    string `bson:"Data,omitempty"`
+}
+
+func (m EventTrigger) MarshalBinary() ([]byte, error) {
+	return bson.Marshal(m)
+}
+
+func (m *EventTrigger) UnmarshalBinary(data []byte) error {
+	return bson.Unmarshal(data, m)
+}
+
 type Event struct {
 	Name string
-	Data string `json:"Data,omitempty"`
+	Data string `bson:"Data,omitempty"`
 }
 
 type storedResult struct {
-	Publishes []Publish `json:"Publishes,omitempty"`
-	Events    []Event   `json:"Events,omitempty"`
+	Publishes     []Publish      `bson:"Publishes,omitempty"`
+	EventTriggers []EventTrigger `bson:"EventTriggers,omitempty"`
 }
 
 func (m storedResult) MarshalBinary() ([]byte, error) {
@@ -70,4 +86,4 @@ type pubSubWorkflow struct {
 	handlers  *[]handlerInfo
 }
 
-type handlerFunc func(string, []Event) ([]Publish, []Event, error)
+type handlerFunc func(string, []Event) ([]Publish, []EventTrigger, error)
