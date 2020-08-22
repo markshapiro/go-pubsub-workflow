@@ -8,4 +8,5 @@ require (
 	github.com/onsi/ginkgo v1.14.0 // indirect
 	github.com/streadway/amqp v1.0.0
 	gopkg.in/bsm/ratelimit.v1 v1.0.0-20160220154919-db14e161995a // indirect
+	gopkg.in/mgo.v2 v2.0.0-20190816093944-a6b53ec6cb22
 )

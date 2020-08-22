@@ -4,6 +4,7 @@ import (
 	amqpWrapper "go-pubsub-workflow/amqp"
 
 	"github.com/go-redis/redis"
+	"gopkg.in/mgo.v2/bson"
 )
 
 type message struct {
@@ -11,6 +12,14 @@ type message struct {
 	MessageId int64
 	Subject   string
 	Args      Args
+}
+
+func (m message) MarshalBinary() ([]byte, error) {
+	return bson.Marshal(m)
+}
+
+func (m *message) UnmarshalBinary(data []byte) error {
+	return bson.Unmarshal(data, m)
 }
 
 type Args struct {
@@ -31,6 +40,14 @@ type Event struct {
 type storedResult struct {
 	Publishes []Publish `json:"Publishes,omitempty"`
 	Events    []Event   `json:"Events,omitempty"`
+}
+
+func (m storedResult) MarshalBinary() ([]byte, error) {
+	return bson.Marshal(m)
+}
+
+func (m *storedResult) UnmarshalBinary(data []byte) error {
+	return bson.Unmarshal(data, m)
 }
 
 type handlerInfo struct {

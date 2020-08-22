@@ -78,7 +78,7 @@ func (wf pubSubWorkflow) StartListening() error {
 
 		var msg message
 
-		err := fromJSON(amqpMsg.Body, &msg)
+		err := msg.UnmarshalBinary(amqpMsg.Body)
 		if err != nil {
 			return err
 		}
@@ -138,12 +138,7 @@ func (wf pubSubWorkflow) processMsg(msg message) error {
 
 	result := storedResult{nextPublishes, nextEvents}
 
-	bytes, err := toJSON(result)
-	if err != nil {
-		return err
-	}
-
-	storeCmd := wf.redisConn.HSetNX(fmt.Sprintf("%s.data", msg.CallId), "result", bytes)
+	storeCmd := wf.redisConn.HSetNX(fmt.Sprintf("%s.data", msg.CallId), "result", result)
 	if storeCmd.Err() != nil && cmd.Err() != redis.Nil {
 		return storeCmd.Err()
 	}
@@ -153,13 +148,9 @@ func (wf pubSubWorkflow) processMsg(msg message) error {
 		if getResultCmd.Err() != nil && getResultCmd.Err() != redis.Nil {
 			return getResultCmd.Err()
 		}
-		resultStr, err := getResultCmd.Result()
-		if err != nil {
-			return err
-		}
 
 		var prevStoredResult storedResult
-		err = fromJSON([]byte(resultStr), &prevStoredResult)
+		err = getResultCmd.Scan(&prevStoredResult)
 		if err != nil {
 			return err
 		}
@@ -242,7 +233,7 @@ func (wf pubSubWorkflow) publish(msg message, queueId string) error {
 		return err
 	}
 
-	bytes, err := toJSON(msg)
+	bytes, err := msg.MarshalBinary()
 	if err != nil {
 		return err
 	}
@@ -301,18 +292,4 @@ func PublishNext(data ...string) []Publish {
 		}
 	}
 	return result
-}
-
-func EmitEvents(data ...string) []Event {
-	var result []Event
-	for ind := range data {
-		if ind%2 == 0 {
-			result = append(result, Event{data[ind], data[ind+1]})
-		}
-	}
-	return result
-}
-
-func fromJSON(bytes []byte, obj interface{}) error {
-	return json.Unmarshal(bytes, obj)
 }
