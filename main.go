@@ -12,6 +12,7 @@ func main() {
 	wf.Subscribe("foo1", foo1)
 	wf.Subscribe("foo2", foo2)
 	wf.Subscribe("foo3", foo3)
+	wf.Subscribe("foo4", foo4)
 
 	err := wf.Connect("amqp://guest:guest@localhost:5672", "127.0.0.1:6379")
 	if err != nil {
@@ -37,7 +38,7 @@ func main() {
 
 //var count = 0
 
-func foo1(data string, events []pubSubWorkflow.Event) ([]pubSubWorkflow.Publish, []pubSubWorkflow.EventTrigger, error) {
+func foo1(data string, events []pubSubWorkflow.Event) ([]pubSubWorkflow.Action, []pubSubWorkflow.EventTrigger, error) {
 	fmt.Println("####### foo1:", data)
 
 	// time.Sleep(time.Second * 1)
@@ -48,18 +49,24 @@ func foo1(data string, events []pubSubWorkflow.Event) ([]pubSubWorkflow.Publish,
 
 	// return pubSubWorkflow.PublishNext("foo2", "1122", "foo2", "111444", "foo3", "333"), nil, nil
 
-	return pubSubWorkflow.PublishNext("foo2", "1122"), []pubSubWorkflow.EventTrigger{
-		pubSubWorkflow.EventTrigger{[]string{"AA", "BB"}, "foo3", "data1"},
-		pubSubWorkflow.EventTrigger{[]string{"BB", "CC"}, "foo3", "data1"},
-	}, nil
+	return pubSubWorkflow.PublishNext("foo2", "1122", "foo3", "2233"),
+		[]pubSubWorkflow.EventTrigger{
+			pubSubWorkflow.EventTrigger{[]string{"AA", "BB"}, "foo4", "data from foo1"},
+		},
+		nil
 }
 
-func foo2(data string, events []pubSubWorkflow.Event) ([]pubSubWorkflow.Publish, []pubSubWorkflow.EventTrigger, error) {
+func foo2(data string, events []pubSubWorkflow.Event) ([]pubSubWorkflow.Action, []pubSubWorkflow.EventTrigger, error) {
 	fmt.Println("####### foo2:", data)
-	return nil, nil, nil
+	return pubSubWorkflow.EmitEvents("AA", "data_AA"), nil, nil
 }
 
-func foo3(data string, events []pubSubWorkflow.Event) ([]pubSubWorkflow.Publish, []pubSubWorkflow.EventTrigger, error) {
-	fmt.Println("####### foo3:", data)
+func foo3(data string, events []pubSubWorkflow.Event) ([]pubSubWorkflow.Action, []pubSubWorkflow.EventTrigger, error) {
+	fmt.Println("####### foo3:", data, events)
+	return pubSubWorkflow.EmitEvents("BB", "data_BB"), nil, nil
+}
+
+func foo4(data string, events []pubSubWorkflow.Event) ([]pubSubWorkflow.Action, []pubSubWorkflow.EventTrigger, error) {
+	fmt.Println("####### foo3:", data, events)
 	return nil, nil, nil
 }

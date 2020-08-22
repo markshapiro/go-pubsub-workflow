@@ -1,7 +1,6 @@
 package pubSubWorkflow
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -15,7 +14,7 @@ import (
 )
 
 var (
-	TASK_ALREADY_CREATED = errors.New("TASK_ALREADY_CREATED")
+	CALL_ALREADY_CREATED = errors.New("CALL_ALREADY_CREATED")
 	HANDLER_NOT_FOUND    = errors.New("METHOD_NOT_FOUND")
 )
 
@@ -85,7 +84,7 @@ func (wf pubSubWorkflow) StartListening() error {
 
 		err = wf.processMsg(msg)
 		if err != nil {
-			if err == TASK_ALREADY_CREATED || err == HANDLER_NOT_FOUND {
+			if err == CALL_ALREADY_CREATED || err == HANDLER_NOT_FOUND {
 				amqpMsg.Reject(false)
 			} else {
 				amqpMsg.Nack(false, true)
@@ -112,12 +111,12 @@ func (wf pubSubWorkflow) processMsg(msg message) error {
 		return HANDLER_NOT_FOUND
 	}
 
-	cmd := wf.redisConn.HSetNX(fmt.Sprintf("call.%s.data", msg.CallId), "msgVerificationId", msg.MessageId)
+	cmd := wf.redisConn.HSetNX(fmt.Sprintf("call.%s.data", msg.CallId), "verificationId", msg.MessageId)
 	if cmd.Err() != nil && cmd.Err() != redis.Nil {
 		return cmd.Err()
 	}
 	if cmd.Val() == false {
-		getCmd := wf.redisConn.HGet(fmt.Sprintf("call.%s.data", msg.CallId), "msgVerificationId")
+		getCmd := wf.redisConn.HGet(fmt.Sprintf("call.%s.data", msg.CallId), "verificationId")
 		if getCmd.Err() != nil && cmd.Err() != redis.Nil {
 			return getCmd.Err()
 		}
@@ -127,16 +126,16 @@ func (wf pubSubWorkflow) processMsg(msg message) error {
 			return err
 		}
 		if firstMessageId != msg.MessageId {
-			return TASK_ALREADY_CREATED
+			return CALL_ALREADY_CREATED
 		}
 	}
 
-	nextPublishes, nextEventTriggers, err := handlerFn(msg.Args.Data, msg.Args.Events)
+	nextActions, nextEventTriggers, err := handlerFn(msg.Args.Data, msg.Args.Events)
 	if err != nil {
 		return err
 	}
 
-	result := storedResult{nextPublishes, nextEventTriggers}
+	result := storedResult{nextActions, nextEventTriggers}
 
 	storeCmd := wf.redisConn.HSetNX(fmt.Sprintf("call.%s.data", msg.CallId), "result", result)
 	if storeCmd.Err() != nil && cmd.Err() != redis.Nil {
@@ -155,32 +154,116 @@ func (wf pubSubWorkflow) processMsg(msg message) error {
 			return err
 		}
 
-		nextPublishes = prevStoredResult.Publishes
+		nextActions = prevStoredResult.Actions
 		nextEventTriggers = prevStoredResult.EventTriggers
 	}
 
-	return wf.triggerNextTasks(msg, nextPublishes, nextEventTriggers)
+	return wf.triggerNextCalls(msg, nextActions, nextEventTriggers)
 }
 
-func (wf pubSubWorkflow) triggerNextTasks(msg message, nextPublishes []Publish, nextEventTriggers []EventTrigger) error {
+func (wf pubSubWorkflow) triggerNextCalls(msg message, nextActions []Action, nextEventTriggers []EventTrigger) error {
 	subjectCounts := make(map[string]int)
 
 	for _, eventTrigger := range nextEventTriggers {
 		wf.redisConn.SAdd(fmt.Sprintf("session.%d.triggers", msg.SessionId), eventTrigger)
 	}
 
-	for _, publish := range nextPublishes {
-		nextCallId := fmt.Sprintf("%d.call.%s.%d", msg.MessageId, publish.Subject, subjectCounts[publish.Subject])
-		nextMessageId, err := wf.getUniqueNum()
-		if err != nil {
-			return err
+	for _, action := range nextActions {
+		if action.Type == Publish {
+			nextCallId := fmt.Sprintf("%d.publish.%s.%d", msg.MessageId, action.Subject, subjectCounts[action.Subject])
+			nextMessageId, err := wf.getUniqueNum()
+			if err != nil {
+				return err
+			}
+			nextMsg := message{nextCallId, nextMessageId, msg.SessionId, action.Subject, Args{action.Data, nil}}
+			err = wf.publish(nextMsg, action.QueueId)
+			if err != nil {
+				return err
+			}
+			subjectCounts[action.Subject]++
 		}
-		nextMsg := message{nextCallId, nextMessageId, msg.SessionId, publish.Subject, Args{publish.Data, nil}}
-		err = wf.publish(nextMsg, publish.QueueId)
-		if err != nil {
-			return err
+	}
+
+	var addEvents = []string{"'HSET'", fmt.Sprintf("'session.%d.events'", msg.SessionId)}
+
+	for _, action := range nextActions {
+		if action.Type == EmitEvent {
+			addEvents = append(addEvents, "'"+action.Event+"'", "'"+action.Data+"'")
 		}
-		subjectCounts[publish.Subject]++
+	}
+
+	cmd := wf.redisConn.Eval("return redis.call("+strings.Join(addEvents, ", ")+")", []string{})
+	if cmd.Err() != nil && cmd.Err() == redis.Nil {
+		return cmd.Err()
+	}
+
+	membersCmd := wf.redisConn.SMembers(fmt.Sprintf("session.%d.triggers", msg.SessionId))
+	if membersCmd.Err() != nil && membersCmd.Err() == redis.Nil {
+		return membersCmd.Err()
+	}
+
+	var eventTriggers []EventTrigger
+
+	err := membersCmd.ScanSlice(&eventTriggers)
+	if err != nil {
+		return err
+	}
+
+	// for _, trigger := range eventTriggers {
+	// 	//fmt.Println(">>>>>", trigger)
+
+	// 	trigger.Events
+	// }
+
+	var handledTriggers = make(map[int]bool)
+
+	for _, action := range nextActions {
+		if action.Type == EmitEvent {
+			for ind, trigger := range eventTriggers {
+				if handledTriggers[ind] {
+					continue
+				}
+				var commonEventExists = false
+				for _, triggeringEvent := range trigger.Events {
+					if action.Event == triggeringEvent {
+						commonEventExists = true
+					}
+				}
+				if commonEventExists {
+
+					var getEventsData = []string{}
+
+					for _, triggeringEvent := range trigger.Events {
+						getEventsData = append(getEventsData, "'"+triggeringEvent+"'")
+					}
+
+					cmd := wf.redisConn.Eval("return redis.call('HMGET', "+fmt.Sprintf("'session.%d.events',", msg.SessionId)+strings.Join(getEventsData, ", ")+")", []string{})
+					if cmd.Err() != nil && cmd.Err() == redis.Nil {
+						return cmd.Err()
+					}
+
+					values := cmd.Val().([]interface{})
+
+					var args = []string{}
+					for _, val := range values {
+						if val != nil {
+							args = append(args, val.(string))
+						}
+					}
+
+					if len(values) == len(args) {
+						fmt.Println(">>>>>>>>>>here", args)
+
+						//fmt.Println(">>>>>>>>>>>>>>>>", args[0]+11)
+
+						//nextMsg := message{nextCallId, nextMessageId, msg.SessionId, action.Subject, Args{action.Data, nil}}
+
+						handledTriggers[ind] = true
+					}
+
+				}
+			}
+		}
 	}
 
 	return nil
@@ -276,26 +359,32 @@ func (wf pubSubWorkflow) Close() error {
 	return nil
 }
 
-func toJSON(obj interface{}) ([]byte, error) {
-	b, err := json.Marshal(obj)
-	if err != nil {
-		return nil, err
-	}
-	return b, err
-}
+// func NewMessage() message {
+// 	return message{nextCallId, nextMessageId, msg.SessionId, action.Subject, Args{action.Data, nil}}
+// }
 
-func PublishNext(data ...string) []Publish {
-	var result []Publish
+func PublishNext(data ...string) []Action {
+	var result []Action
 	for ind := range data {
 		if ind%2 == 0 {
 			dotSymbol := strings.Index(data[ind], ".")
 			if dotSymbol >= 0 {
 				queueId := data[ind][:dotSymbol]
-				topic := data[ind][dotSymbol+1:]
-				result = append(result, Publish{queueId, topic, data[ind+1]})
+				subject := data[ind][dotSymbol+1:]
+				result = append(result, Action{Publish, queueId, "", subject, data[ind+1]})
 			} else {
-				result = append(result, Publish{"", data[ind], data[ind+1]})
+				result = append(result, Action{Publish, "", "", data[ind], data[ind+1]})
 			}
+		}
+	}
+	return result
+}
+
+func EmitEvents(data ...string) []Action {
+	var result []Action
+	for ind := range data {
+		if ind%2 == 0 {
+			result = append(result, Action{EmitEvent, "", data[ind], "", data[ind+1]})
 		}
 	}
 	return result

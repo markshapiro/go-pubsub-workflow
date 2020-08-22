@@ -28,9 +28,16 @@ type Args struct {
 	Events []Event `bson:"Events,omitempty"`
 }
 
-type Publish struct {
-	QueueId string
-	Subject string
+const (
+	Publish   = "publish"
+	EmitEvent = "emitEvent"
+)
+
+type Action struct {
+	Type    string
+	QueueId string `bson:"QueueId,omitempty"`
+	Event   string `bson:"Event,omitempty"`
+	Subject string `bson:"Subject,omitempty"`
 	Data    string `bson:"Data,omitempty"`
 }
 
@@ -54,7 +61,7 @@ type Event struct {
 }
 
 type storedResult struct {
-	Publishes     []Publish      `bson:"Publishes,omitempty"`
+	Actions       []Action       `bson:"Actions,omitempty"`
 	EventTriggers []EventTrigger `bson:"EventTriggers,omitempty"`
 }
 
@@ -86,4 +93,4 @@ type pubSubWorkflow struct {
 	handlers  *[]handlerInfo
 }
 
-type handlerFunc func(string, []Event) ([]Publish, []EventTrigger, error)
+type handlerFunc func(string, []Event) ([]Action, []EventTrigger, error)
