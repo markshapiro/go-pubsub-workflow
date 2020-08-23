@@ -39,7 +39,7 @@ func main() {
 
 //var count = 0
 
-func foo1(data string, events []pubSubWorkflow.Event) ([]pubSubWorkflow.Action, []pubSubWorkflow.EventTrigger, error) {
+func foo1(data string, events []pubSubWorkflow.Event) ([]pubSubWorkflow.Action, []pubSubWorkflow.EventListener, error) {
 	fmt.Println("####### foo1:", data)
 
 	// time.Sleep(time.Second * 1)
@@ -51,32 +51,32 @@ func foo1(data string, events []pubSubWorkflow.Event) ([]pubSubWorkflow.Action, 
 	//return pubSubWorkflow.PublishNext("foo2", "1122", "foo2", "111444", "foo3", "333"), nil, nil
 
 	return pubSubWorkflow.PublishNext("foo2", "1122", "foo3", "2233"),
-		[]pubSubWorkflow.EventTrigger{
-			pubSubWorkflow.NewEventTrigger("foo4", "data from foo1", "AA", "BB"),
-			//pubSubWorkflow.NewEventTrigger("foo4", "data from foo1", "BB", "CC"),
-			//pubSubWorkflow.NewEventTrigger("foo5", "data from foo1", "BB", "CC"),
+		[]pubSubWorkflow.EventListener{
+			pubSubWorkflow.NewEventListener("foo4", "data from foo1", "AA", "BB"),
+			pubSubWorkflow.NewEventListener("foo4", "data from foo1", "BB", "CC", "DD"),
+			pubSubWorkflow.NewEventListener("foo5", "data from foo1", "BB", "CC"),
 		},
 		nil
 }
 
-func foo2(data string, events []pubSubWorkflow.Event) ([]pubSubWorkflow.Action, []pubSubWorkflow.EventTrigger, error) {
+func foo2(data string, events []pubSubWorkflow.Event) ([]pubSubWorkflow.Action, []pubSubWorkflow.EventListener, error) {
 	fmt.Println("####### foo2:", data)
-	return pubSubWorkflow.EmitEvents("AA", "data_AA"), nil, nil
+	return pubSubWorkflow.EmitEvents("AA", "data_AA", "DD", "data_DD"), nil, nil
 	//return nil, nil, nil
 }
 
-func foo3(data string, events []pubSubWorkflow.Event) ([]pubSubWorkflow.Action, []pubSubWorkflow.EventTrigger, error) {
+func foo3(data string, events []pubSubWorkflow.Event) ([]pubSubWorkflow.Action, []pubSubWorkflow.EventListener, error) {
 	fmt.Println("####### foo3:", data, events)
 	return pubSubWorkflow.EmitEvents("BB", "data_BB", "CC", "data_CC"), nil, nil
 	//return nil, nil, nil
 }
 
-func foo4(data string, events []pubSubWorkflow.Event) ([]pubSubWorkflow.Action, []pubSubWorkflow.EventTrigger, error) {
+func foo4(data string, events []pubSubWorkflow.Event) ([]pubSubWorkflow.Action, []pubSubWorkflow.EventListener, error) {
 	fmt.Println("####### foo4:", data, events)
 	return nil, nil, nil
 }
 
-func foo5(data string, events []pubSubWorkflow.Event) ([]pubSubWorkflow.Action, []pubSubWorkflow.EventTrigger, error) {
+func foo5(data string, events []pubSubWorkflow.Event) ([]pubSubWorkflow.Action, []pubSubWorkflow.EventListener, error) {
 	fmt.Println("####### foo5:", data, events)
 	return nil, nil, nil
 }

@@ -130,19 +130,19 @@ func (wf pubSubWorkflow) processMsg(msg message) error {
 		}
 	}
 
-	nextActions, nextEventTriggers, err := handlerFn(msg.Args.Data, msg.Args.Events)
+	nextActions, nextEventListeners, err := handlerFn(msg.Args.Data, msg.Args.Events)
 	if err != nil {
 		return err
 	}
 
-	for ind := range nextEventTriggers {
-		nextEventTriggers[ind].EventTriggerId, err = wf.getUniqueNum()
+	for ind := range nextEventListeners {
+		nextEventListeners[ind].EventListenerId, err = wf.getUniqueNum()
 		if err != nil {
 			return err
 		}
 	}
 
-	result := storedResult{nextActions, nextEventTriggers}
+	result := storedResult{nextActions, nextEventListeners}
 
 	storeCmd := wf.redisConn.HSetNX(fmt.Sprintf("call.%s.data", msg.CallId), "result", result)
 	if storeCmd.Err() != nil && cmd.Err() != redis.Nil {
@@ -162,16 +162,16 @@ func (wf pubSubWorkflow) processMsg(msg message) error {
 		}
 
 		nextActions = prevStoredResult.Actions
-		nextEventTriggers = prevStoredResult.EventTriggers
+		nextEventListeners = prevStoredResult.EventListeners
 	}
 
-	return wf.triggerNextCalls(msg, nextActions, nextEventTriggers)
+	return wf.executeNextCalls(msg, nextActions, nextEventListeners)
 }
 
-func (wf pubSubWorkflow) triggerNextCalls(msg message, nextActions []Action, nextEventTriggers []EventTrigger) error {
+func (wf pubSubWorkflow) executeNextCalls(msg message, nextActions []Action, nextEventListeners []EventListener) error {
 
-	for _, eventTrigger := range nextEventTriggers {
-		cmd := wf.redisConn.SAdd(fmt.Sprintf("session.%d.triggers", msg.SessionId), eventTrigger)
+	for _, eventListener := range nextEventListeners {
+		cmd := wf.redisConn.SAdd(fmt.Sprintf("session.%d.eventListeners", msg.SessionId), eventListener)
 		if cmd.Err() != nil && cmd.Err() == redis.Nil {
 			return cmd.Err()
 		}
@@ -224,36 +224,36 @@ func (wf pubSubWorkflow) emitEvents(msg message, nextActions []Action) error {
 		return cmd.Err()
 	}
 
-	membersCmd := wf.redisConn.SMembers(fmt.Sprintf("session.%d.triggers", msg.SessionId))
+	membersCmd := wf.redisConn.SMembers(fmt.Sprintf("session.%d.eventListeners", msg.SessionId))
 	if membersCmd.Err() != nil && membersCmd.Err() == redis.Nil {
 		return membersCmd.Err()
 	}
 
-	var eventTriggers []EventTrigger
+	var eventListeners []EventListener
 
-	err := membersCmd.ScanSlice(&eventTriggers)
+	err := membersCmd.ScanSlice(&eventListeners)
 	if err != nil {
 		return err
 	}
 
-	var handledTriggers = make(map[int]bool)
+	var handledListeners = make(map[int]bool)
 
 	for _, action := range nextActions {
 		if action.Type == EmitEvent {
-			for ind, trigger := range eventTriggers {
-				if handledTriggers[ind] {
+			for ind, listener := range eventListeners {
+				if handledListeners[ind] {
 					continue
 				}
 				var commonEventExists = false
-				for _, triggeringEvent := range trigger.Events {
-					if action.Event == triggeringEvent {
+				for _, listeningingEvent := range listener.Events {
+					if action.Event == listeningingEvent {
 						commonEventExists = true
 					}
 				}
 				if commonEventExists {
 					var getEventsData = []string{}
-					for _, triggeringEvent := range trigger.Events {
-						getEventsData = append(getEventsData, "'"+triggeringEvent+"'")
+					for _, listeningingEvent := range listener.Events {
+						getEventsData = append(getEventsData, "'"+listeningingEvent+"'")
 					}
 
 					cmd := wf.redisConn.Eval("return redis.call('HMGET', "+fmt.Sprintf("'session.%d.events',", msg.SessionId)+strings.Join(getEventsData, ", ")+")", []string{})
@@ -266,7 +266,7 @@ func (wf pubSubWorkflow) emitEvents(msg message, nextActions []Action) error {
 					var args []Event
 					for valInd, val := range values {
 						if val != nil {
-							args = append(args, Event{trigger.Events[valInd], val.(string)})
+							args = append(args, Event{listener.Events[valInd], val.(string)})
 						}
 					}
 
@@ -276,13 +276,13 @@ func (wf pubSubWorkflow) emitEvents(msg message, nextActions []Action) error {
 							return err
 						}
 
-						nextCallId := fmt.Sprintf("%d.event.%d", msg.MessageId, trigger.EventTriggerId)
-						nextMsg := message{nextCallId, nextMessageId, msg.SessionId, trigger.Subject, Args{trigger.Data, args}}
-						err = wf.publish(nextMsg, trigger.QueueId)
+						nextCallId := fmt.Sprintf("%d.event.%d", msg.MessageId, listener.EventListenerId)
+						nextMsg := message{nextCallId, nextMessageId, msg.SessionId, listener.Subject, Args{listener.Data, args}}
+						err = wf.publish(nextMsg, listener.QueueId)
 						if err != nil {
 							return err
 						}
-						handledTriggers[ind] = true
+						handledListeners[ind] = true
 					}
 
 				}
@@ -393,9 +393,9 @@ func PublishNext(data ...string) []Action {
 	return result
 }
 
-func NewEventTrigger(dest string, data string, events ...string) EventTrigger {
+func NewEventListener(dest string, data string, events ...string) EventListener {
 	queueId, subject := getQueueAndSubject(dest)
-	return EventTrigger{
+	return EventListener{
 		Events:  events,
 		QueueId: queueId,
 		Subject: subject,

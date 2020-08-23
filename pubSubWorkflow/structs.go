@@ -41,19 +41,19 @@ type Action struct {
 	Data    string `bson:"Data,omitempty"`
 }
 
-type EventTrigger struct {
-	Events         []string
-	EventTriggerId int64
-	QueueId        string `bson:"QueueId,omitempty"`
-	Subject        string
-	Data           string `bson:"Data,omitempty"`
+type EventListener struct {
+	Events          []string
+	EventListenerId int64
+	QueueId         string `bson:"QueueId,omitempty"`
+	Subject         string
+	Data            string `bson:"Data,omitempty"`
 }
 
-func (m EventTrigger) MarshalBinary() ([]byte, error) {
+func (m EventListener) MarshalBinary() ([]byte, error) {
 	return bson.Marshal(m)
 }
 
-func (m *EventTrigger) UnmarshalBinary(data []byte) error {
+func (m *EventListener) UnmarshalBinary(data []byte) error {
 	return bson.Unmarshal(data, m)
 }
 
@@ -63,8 +63,8 @@ type Event struct {
 }
 
 type storedResult struct {
-	Actions       []Action       `bson:"Actions,omitempty"`
-	EventTriggers []EventTrigger `bson:"EventTriggers,omitempty"`
+	Actions        []Action        `bson:"Actions,omitempty"`
+	EventListeners []EventListener `bson:"EventListeners,omitempty"`
 }
 
 func (m storedResult) MarshalBinary() ([]byte, error) {
@@ -95,4 +95,4 @@ type pubSubWorkflow struct {
 	handlers  *[]handlerInfo
 }
 
-type handlerFunc func(string, []Event) ([]Action, []EventTrigger, error)
+type handlerFunc func(string, []Event) ([]Action, []EventListener, error)
