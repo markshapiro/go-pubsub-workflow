@@ -1,10 +1,10 @@
 package pubSubWorkflow
 
 import (
+	"encoding/json"
 	amqpWrapper "go-pubsub-workflow/amqp"
 
 	"github.com/go-redis/redis"
-	"gopkg.in/mgo.v2/bson"
 )
 
 type message struct {
@@ -16,16 +16,16 @@ type message struct {
 }
 
 func (m message) MarshalBinary() ([]byte, error) {
-	return bson.Marshal(m)
+	return json.Marshal(m)
 }
 
 func (m *message) UnmarshalBinary(data []byte) error {
-	return bson.Unmarshal(data, m)
+	return json.Unmarshal(data, m)
 }
 
 type Args struct {
-	Data   string  `bson:"Data,omitempty"`
-	Events []Event `bson:"Events,omitempty"`
+	Data   string  `json:"Data,omitempty"`
+	Events []Event `json:"Events,omitempty"`
 }
 
 const (
@@ -35,44 +35,44 @@ const (
 
 type Action struct {
 	Type    string
-	QueueId string `bson:"QueueId,omitempty"`
-	Event   string `bson:"Event,omitempty"`
-	Subject string `bson:"Subject,omitempty"`
-	Data    string `bson:"Data,omitempty"`
+	QueueId string `json:"QueueId,omitempty"`
+	Event   string `json:"Event,omitempty"`
+	Subject string `json:"Subject,omitempty"`
+	Data    string `json:"Data,omitempty"`
 }
 
 type EventListener struct {
 	Events          []string
 	EventListenerId int64
-	QueueId         string `bson:"QueueId,omitempty"`
+	QueueId         string `json:"QueueId,omitempty"`
 	Subject         string
-	Data            string `bson:"Data,omitempty"`
+	Data            string `json:"Data,omitempty"`
 }
 
 func (m EventListener) MarshalBinary() ([]byte, error) {
-	return bson.Marshal(m)
+	return json.Marshal(m)
 }
 
 func (m *EventListener) UnmarshalBinary(data []byte) error {
-	return bson.Unmarshal(data, m)
+	return json.Unmarshal(data, m)
 }
 
 type Event struct {
 	Name string
-	Data string `bson:"Data,omitempty"`
+	Data string `json:"Data,omitempty"`
 }
 
 type storedResult struct {
-	Actions        []Action        `bson:"Actions,omitempty"`
-	EventListeners []EventListener `bson:"EventListeners,omitempty"`
+	Actions        []Action        `json:"Actions,omitempty"`
+	EventListeners []EventListener `json:"EventListeners,omitempty"`
 }
 
 func (m storedResult) MarshalBinary() ([]byte, error) {
-	return bson.Marshal(m)
+	return json.Marshal(m)
 }
 
 func (m *storedResult) UnmarshalBinary(data []byte) error {
-	return bson.Unmarshal(data, m)
+	return json.Unmarshal(data, m)
 }
 
 type handlerInfo struct {
