@@ -28,40 +28,43 @@ you will next need redis and amqp running, it is recommended that appendonly fla
 
 ### how to use
 
-create instance & subscribe to tasks
+create instance and provide the name of internal queue to be listened to, each microservice should use different queue name.
+<br>scheduling tasks to other miscroservices is possible and will be explained later.
 ```go
     wf := wf.New("queue_name_1")
-
-    wf.Subscribe("task1", foo1)
-    wf.Subscribe("task2", foo2)
-    ...
-    wf.Subscribe("taskN", fooN)
 ```
-
-define methods
+define each task in workflow by providing name of task and handler function
+```go
+    wf.Subscribe("task1", task1)
+    wf.Subscribe("task2", task2)
+    ...
+    wf.Subscribe("taskN", taskN)
+```
+define handler functions from previous step for each task and which consequtive tasks should be run
 ``` go
-    func foo1(data string, events []wf.Event) ([]wf.Action, []wf.PublishTrigger, error) {
-        return wf.PublishNext("foo2", "1122", "foo3", "2233"), nil, nil
+    func task1(data string, events []wf.Event) ([]wf.Action, []wf.PublishTrigger, error) {
+        return wf.PublishNext("task2", "some data", "task3", "some data"), nil, nil
+    }
+    func task2(data string, events []wf.Event) ([]wf.Action, []wf.PublishTrigger, error) {
+        return wf.PublishNext("task4", "some data"), nil, nil
     }
 ```
-
-connect & listen to pusblishes
+connect & listen to calls
 ```go
-	err := wf.Connect("amqp://guest:guest@localhost:5672", "127.0.0.1:6379")
-	if err != nil {
-		panic(err)
-	}
-	defer wf.Close()
+    err := wf.Connect("amqp://guest:guest@localhost:5672", "127.0.0.1:6379")
+    if err != nil {
+        panic(err)
+    }
+    defer wf.Close()
 
-	go func() {
-		err = wf.StartListening()
-		if err != nil {
-			panic(err)
-		}
+    go func() {
+        err = wf.StartListening()
+        if err != nil {
+            panic(err)
+        }
     }()
 ```
-
-publish to initiate workflow
+publish message to start workflow
 ```go
     wf.Publish("task1", "some data")
 ```
