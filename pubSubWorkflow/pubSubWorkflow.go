@@ -167,7 +167,7 @@ func (wf pubSubWorkflow) processMsg(msg message) error {
 	/*
 		in case message is requeued and previous response of handler (actions/event triggers) was already calculated & stored,
 		we ignore the newer response and take the first stored, because it could have had requeued in the middle of publishing
-		of next messages, and since constuction of CallIds depends solely on response, we want to continue publishing from
+		of next messages, and since constuction of CallIds depends solely on handler response (actions), we want to continue publishing from
 		where the handler stopped before it was requeued, to prevent inconsistent publishing.
 	*/
 	if cmd.Val() == false {
