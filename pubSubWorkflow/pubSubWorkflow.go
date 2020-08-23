@@ -251,9 +251,7 @@ func (wf pubSubWorkflow) emitEvents(msg message, nextActions []Action) error {
 					}
 				}
 				if commonEventExists {
-
 					var getEventsData = []string{}
-
 					for _, triggeringEvent := range trigger.Events {
 						getEventsData = append(getEventsData, "'"+triggeringEvent+"'")
 					}
@@ -266,9 +264,9 @@ func (wf pubSubWorkflow) emitEvents(msg message, nextActions []Action) error {
 					values := cmd.Val().([]interface{})
 
 					var args []Event
-					for _, val := range values {
+					for valInd, val := range values {
 						if val != nil {
-							args = append(args, Event{trigger.Events[ind], val.(string)})
+							args = append(args, Event{trigger.Events[valInd], val.(string)})
 						}
 					}
 
@@ -395,8 +393,8 @@ func PublishNext(data ...string) []Action {
 	return result
 }
 
-func NewEventTrigger(subject string, data string, events ...string) EventTrigger {
-	queueId, subject := getQueueAndSubject(subject)
+func NewEventTrigger(dest string, data string, events ...string) EventTrigger {
+	queueId, subject := getQueueAndSubject(dest)
 	return EventTrigger{
 		Events:  events,
 		QueueId: queueId,
@@ -405,12 +403,12 @@ func NewEventTrigger(subject string, data string, events ...string) EventTrigger
 	}
 }
 
-func getQueueAndSubject(str string) (string, string) {
-	dotSymbol := strings.Index(str, ".")
+func getQueueAndSubject(dest string) (string, string) {
+	dotSymbol := strings.Index(dest, ".")
 	if dotSymbol >= 0 {
-		return str[:dotSymbol], str[dotSymbol+1:]
+		return dest[:dotSymbol], dest[dotSymbol+1:]
 	}
-	return "", str
+	return "", dest
 }
 
 func EmitEvents(data ...string) []Action {

@@ -67,7 +67,7 @@ func foo2(data string, events []pubSubWorkflow.Event) ([]pubSubWorkflow.Action, 
 
 func foo3(data string, events []pubSubWorkflow.Event) ([]pubSubWorkflow.Action, []pubSubWorkflow.EventTrigger, error) {
 	fmt.Println("####### foo3:", data, events)
-	return pubSubWorkflow.EmitEvents("BB", "data_BB"), nil, nil
+	return pubSubWorkflow.EmitEvents("BB", "data_BB", "CC", "data_CC"), nil, nil
 	//return nil, nil, nil
 }
 
