@@ -237,7 +237,7 @@ func (wf pubSubWorkflow) emitEvents(msg message, nextActions []Action) error {
 			}
 		}
 		if len(eventArgs) > 0 {
-			var missingEvents = []string{}
+			var eventsNotInActions = []string{}
 			for _, listeningEvent := range listener.Events {
 				exists := false
 				for _, arg := range eventArgs {
@@ -246,26 +246,19 @@ func (wf pubSubWorkflow) emitEvents(msg message, nextActions []Action) error {
 					}
 				}
 				if !exists {
-					missingEvents = append(missingEvents, listeningEvent)
+					eventsNotInActions = append(eventsNotInActions, listeningEvent)
 				}
 			}
 
-			if len(missingEvents) > 0 {
-
-				var getEventsData = []string{}
-
-				for _, eventName := range missingEvents {
-					getEventsData = append(getEventsData, "'"+eventName+"'")
-				}
-
-				cmd := wf.redisConn.Eval("return redis.call('HMGET', "+fmt.Sprintf("'session.%d.events', ", msg.SessionId)+strings.Join(getEventsData, ", ")+")", []string{})
+			if len(eventsNotInActions) > 0 {
+				cmd := wf.redisConn.Eval("return redis.call('HMGET', "+fmt.Sprintf("'session.%d.events'", msg.SessionId)+", '"+strings.Join(eventsNotInActions, "', '")+"')", []string{})
 				if cmd.Err() != nil && cmd.Err() == redis.Nil {
 					return cmd.Err()
 				}
 				values := cmd.Val().([]interface{})
 				for valInd, val := range values {
 					if val != nil {
-						eventArgs = append(eventArgs, Event{missingEvents[valInd], val.(string)})
+						eventArgs = append(eventArgs, Event{eventsNotInActions[valInd], val.(string)})
 					}
 				}
 			}

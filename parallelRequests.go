@@ -31,11 +31,15 @@ func main() {
 		defer mywf.Close()
 	}
 
-	mywf.Publish("registerUser", UserRegistration{"user 1", "user1@mail.com", "credit card 1", "/user1.1111"}.toJson())
-	mywf.Publish("registerUser", UserRegistration{"user 2", "user2@mail.com", "credit card 2", "/user2.222"}.toJson())
-	mywf.Publish("registerUser", UserRegistration{"user 3", "user3@mail.com", "credit card 3", "/user2.3333333"}.toJson())
-	mywf.Publish("registerUser", UserRegistration{"user 4", "user4@mail.com", "credit card 4", "/user4.44444"}.toJson())
-	mywf.Publish("registerUser", UserRegistration{"user 5", "user5@mail.com", "credit card 5", "/user5.55"}.toJson())
+	go mywf.Publish("registerUser", UserRegistration{"user 1", "user1@mail.com", "credit card 1", "/user1.1111"}.toJson())
+	go mywf.Publish("registerUser", UserRegistration{"user 2", "user2@mail.com", "credit card 2", "/user2.222"}.toJson())
+	go mywf.Publish("registerUser", UserRegistration{"user 3", "user3@mail.com", "credit card 3", "/user2.3333333"}.toJson())
+	go mywf.Publish("registerUser", UserRegistration{"user 4", "user4@mail.com", "credit card 4", "/user4.44444"}.toJson())
+	go mywf.Publish("registerUser", UserRegistration{"user 5", "user5@mail.com", "credit card 5", "/user5.55"}.toJson())
+	go mywf.Publish("registerUser", UserRegistration{"user 6", "user6@mail.com", "credit card 6", "/user6.66"}.toJson())
+	go mywf.Publish("registerUser", UserRegistration{"user 7", "user7@mail.com", "credit card 7", "/user7.777777"}.toJson())
+	go mywf.Publish("registerUser", UserRegistration{"user 8", "user8@mail.com", "credit card 8", "/user8.8888"}.toJson())
+	go mywf.Publish("registerUser", UserRegistration{"user 9", "user9@mail.com", "credit card 9", "/user9.9999999"}.toJson())
 
 	select {}
 }
@@ -82,7 +86,6 @@ func verifyCard(data string, events []wf.Event) ([]wf.Action, []wf.EventListener
 }
 
 func finalize(data string, events []wf.Event) ([]wf.Action, []wf.EventListener, error) {
-	fmt.Println("####################### FINALIZED:", data)
-	fmt.Println("####### RECEIVED EVENTS:", events)
+	fmt.Printf("#################################\nFINALIZED: %v\nRECEIVED EVENTS: %v\n", data, events)
 	return nil, nil, nil
 }
