@@ -48,8 +48,8 @@ func compute(taskName string, events []wf.Event) ([]wf.Action, []wf.EventListene
 	r1 := rand.New(s1)
 
 	if r1.Intn(2) == 0 {
-		fmt.Printf("compute task %s crashed, will rerun\n", taskName)
-		return nil, nil, errors.New("crashed")
+		fmt.Printf("compute task %s returns error, will rerun\n", taskName)
+		return nil, nil, errors.New("error")
 	}
 
 	randomNum := fmt.Sprintf("%d", r1.Intn(1000))
