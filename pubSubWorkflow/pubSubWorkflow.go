@@ -135,6 +135,13 @@ func (wf pubSubWorkflow) processMsg(msg message) error {
 		return err
 	}
 
+	for _, eventTrigger := range nextEventTriggers {
+		eventTrigger.EventTriggerId, err = wf.getUniqueNum()
+		if err != nil {
+			return err
+		}
+	}
+
 	result := storedResult{nextActions, nextEventTriggers}
 
 	storeCmd := wf.redisConn.HSetNX(fmt.Sprintf("call.%s.data", msg.CallId), "result", result)
@@ -209,12 +216,6 @@ func (wf pubSubWorkflow) triggerNextCalls(msg message, nextActions []Action, nex
 		return err
 	}
 
-	// for _, trigger := range eventTriggers {
-	// 	//fmt.Println(">>>>>", trigger)
-
-	// 	trigger.Events
-	// }
-
 	var handledTriggers = make(map[int]bool)
 
 	for _, action := range nextActions {
@@ -244,20 +245,25 @@ func (wf pubSubWorkflow) triggerNextCalls(msg message, nextActions []Action, nex
 
 					values := cmd.Val().([]interface{})
 
-					var args = []string{}
+					var args []Event
 					for _, val := range values {
 						if val != nil {
-							args = append(args, val.(string))
+							args = append(args, Event{trigger.Events[ind], val.(string)})
 						}
 					}
 
 					if len(values) == len(args) {
-						fmt.Println(">>>>>>>>>>here", args)
+						nextMessageId, err := wf.getUniqueNum()
+						if err != nil {
+							return err
+						}
 
-						//fmt.Println(">>>>>>>>>>>>>>>>", args[0]+11)
-
-						//nextMsg := message{nextCallId, nextMessageId, msg.SessionId, action.Subject, Args{action.Data, nil}}
-
+						nextCallId := fmt.Sprintf("%d.event.%d", msg.MessageId, trigger.EventTriggerId)
+						nextMsg := message{nextCallId, nextMessageId, msg.SessionId, trigger.Subject, Args{trigger.Data, args}}
+						err = wf.publish(nextMsg, "")
+						if err != nil {
+							return err
+						}
 						handledTriggers[ind] = true
 					}
 
@@ -358,10 +364,6 @@ func (wf pubSubWorkflow) Close() error {
 	}
 	return nil
 }
-
-// func NewMessage() message {
-// 	return message{nextCallId, nextMessageId, msg.SessionId, action.Subject, Args{action.Data, nil}}
-// }
 
 func PublishNext(data ...string) []Action {
 	var result []Action

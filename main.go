@@ -13,6 +13,7 @@ func main() {
 	wf.Subscribe("foo2", foo2)
 	wf.Subscribe("foo3", foo3)
 	wf.Subscribe("foo4", foo4)
+	wf.Subscribe("foo5", foo5)
 
 	err := wf.Connect("amqp://guest:guest@localhost:5672", "127.0.0.1:6379")
 	if err != nil {
@@ -51,7 +52,9 @@ func foo1(data string, events []pubSubWorkflow.Event) ([]pubSubWorkflow.Action, 
 
 	return pubSubWorkflow.PublishNext("foo2", "1122", "foo3", "2233"),
 		[]pubSubWorkflow.EventTrigger{
-			pubSubWorkflow.EventTrigger{[]string{"AA", "BB"}, "foo4", "data from foo1"},
+			pubSubWorkflow.NewEventTrigger("foo4", "data from foo1", "AA", "BB"),
+			//pubSubWorkflow.NewEventTrigger("foo4", "data from foo1", "BB", "CC"),
+			//pubSubWorkflow.NewEventTrigger("foo5", "data from foo1", "BB", "CC"),
 		},
 		nil
 }
@@ -63,10 +66,15 @@ func foo2(data string, events []pubSubWorkflow.Event) ([]pubSubWorkflow.Action, 
 
 func foo3(data string, events []pubSubWorkflow.Event) ([]pubSubWorkflow.Action, []pubSubWorkflow.EventTrigger, error) {
 	fmt.Println("####### foo3:", data, events)
-	return pubSubWorkflow.EmitEvents("BB", "data_BB"), nil, nil
+	return pubSubWorkflow.EmitEvents("BB", "data_BB", "CC", "data_CC"), nil, nil
 }
 
 func foo4(data string, events []pubSubWorkflow.Event) ([]pubSubWorkflow.Action, []pubSubWorkflow.EventTrigger, error) {
-	fmt.Println("####### foo3:", data, events)
+	fmt.Println("####### foo4:", data, events)
+	return nil, nil, nil
+}
+
+func foo5(data string, events []pubSubWorkflow.Event) ([]pubSubWorkflow.Action, []pubSubWorkflow.EventTrigger, error) {
+	fmt.Println("####### foo5:", data, events)
 	return nil, nil, nil
 }
