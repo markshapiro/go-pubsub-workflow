@@ -44,7 +44,7 @@ func (wf pubSubWorkflow) Connect(amqpUrl, redisUrl string) error {
 	}
 
 	if conf.String() != "config get appendonly: [appendonly yes]" {
-		fmt.Println(fmt.Errorf("Warning: redis appendonly is not set, it is recommended to set 'appendonly yes' for maximum durability"))
+		fmt.Println(fmt.Errorf("Warning: redis appendonly is not set, it is recommended to set 'appendonly yes' for maximum durability").Error())
 	}
 
 	if err != nil {
@@ -86,7 +86,7 @@ func (wf pubSubWorkflow) StartListening() error {
 
 			if err == CALL_ALREADY_CREATED || err == HANDLER_NOT_FOUND {
 				if err == HANDLER_NOT_FOUND {
-					fmt.Println(fmt.Errorf("Error: method not found %s destined for queue %s", msg.Subject, wf.queueId))
+					fmt.Println(fmt.Errorf("Error: method not found %s destined for queue %s", msg.Subject, wf.queueId).Error())
 				}
 				amqpMsg.Reject(false)
 			} else {

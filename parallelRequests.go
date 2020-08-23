@@ -26,7 +26,7 @@ func main() {
 
 	var mywf wf.PubSubWorkflow
 
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 20; i++ {
 		mywf = runUserService()
 		defer mywf.Close()
 	}
