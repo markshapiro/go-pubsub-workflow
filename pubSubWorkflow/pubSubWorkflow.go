@@ -83,7 +83,6 @@ func (wf pubSubWorkflow) StartListening() error {
 
 		err = wf.processMsg(msg)
 		if err != nil {
-
 			if err == CALL_ALREADY_CREATED || err == HANDLER_NOT_FOUND {
 				if err == HANDLER_NOT_FOUND {
 					fmt.Println(fmt.Errorf("Error: method not found %s destined for queue %s", msg.Subject, wf.queueId).Error())
@@ -103,31 +102,36 @@ func (wf pubSubWorkflow) StartListening() error {
 
 func (wf pubSubWorkflow) processMsg(msg message) error {
 	var handlerFn handlerFunc
-
 	for _, handler := range *wf.handlers {
 		if msg.Subject == handler.subject {
 			handlerFn = handler.handlerFn
 		}
 	}
-
 	if handlerFn == nil {
 		return HANDLER_NOT_FOUND
 	}
 
+	/*
+		msg.MessageId will be used to claim the sole right to be pro(and repro-)cessed, if two messages with same CallId
+		enter this section, the one who sets messageId first will proceed and the other one will be discarded,
+		when a message is requeued, it will check if the value it set before matches with its msg.messageId as a requirement to proceed.
+		this way we ensure that we don't run same task twice when the handler that published the task before was requeued itsef.
+	*/
 	cmd := wf.redisConn.HSetNX(fmt.Sprintf("call.%s.data", msg.CallId), "verificationId", msg.MessageId)
 	if cmd.Err() != nil && cmd.Err() != redis.Nil {
 		return cmd.Err()
 	}
 	if cmd.Val() == false {
+		// we enter here if handler was called twice, due to its own or its callers requeue
 		getCmd := wf.redisConn.HGet(fmt.Sprintf("call.%s.data", msg.CallId), "verificationId")
 		if getCmd.Err() != nil && cmd.Err() != redis.Nil {
 			return getCmd.Err()
 		}
-
 		firstMessageId, err := getCmd.Int64()
 		if err != nil {
 			return err
 		}
+		// if values match, means the message itself was requeued (due to loss of connection or crash for example)
 		if firstMessageId != msg.MessageId {
 			return CALL_ALREADY_CREATED
 		}
@@ -139,6 +143,11 @@ func (wf pubSubWorkflow) processMsg(msg message) error {
 	}
 
 	for ind := range nextPublishOnEvents {
+		/*
+			all on event publish triggers should get unique id once, to be used as CallId (of message of triggered publish),
+			this removes possibility of duplicate call when there's race condition between event emmiters,
+			since storing events and checking for publishes to be triggered is not atomic.
+		*/
 		nextPublishOnEvents[ind].EventPublishId, err = wf.getUniqueNum()
 		if nextPublishOnEvents[ind].QueueId == "" {
 			nextPublishOnEvents[ind].QueueId = wf.queueId
@@ -155,6 +164,12 @@ func (wf pubSubWorkflow) processMsg(msg message) error {
 		return storeCmd.Err()
 	}
 
+	/*
+		in case message is requeued and previous response of handler (actions/event triggers) was already calculated & stored,
+		we ignore the newer response and take the first stored, because it could have had requeued in the middle of publishing
+		of next messages, and since constuction of CallIds depends solely on response, we want to continue publishing from
+		where the handler stopped before it was requeued, to prevent inconsistent publishing.
+	*/
 	if cmd.Val() == false {
 		getResultCmd := wf.redisConn.HGet(fmt.Sprintf("call.%s.data", msg.CallId), "result")
 		if getResultCmd.Err() != nil && getResultCmd.Err() != redis.Nil {
@@ -200,6 +215,9 @@ func (wf pubSubWorkflow) publishCalls(msg message, nextActions []Action) error {
 	subjectCounts := make(map[string]int)
 	for _, action := range nextActions {
 		if action.Type == Publish {
+			// msg.CallId should be calculated deterministically and based on returned nextActions,
+			// so that we could discard duplicate calls by publishing a second message with same CallId but different messageId
+			// (see beginning of processMsg() where each message claims the right to be proccessed by being the first one to set MessageId)
 			nextCallId := fmt.Sprintf("%d.publish.%s.%d", msg.MessageId, action.Subject, subjectCounts[action.Subject])
 			nextMessageId, err := wf.getUniqueNum()
 			if err != nil {
@@ -275,6 +293,7 @@ func (wf pubSubWorkflow) emitEvents(msg message, nextActions []Action) error {
 					return err
 				}
 
+				// as mentioned above, msg.CallId should be calculated deterministically
 				nextCallId := fmt.Sprintf("event.%d", eventPublish.EventPublishId)
 				nextMsg := message{nextCallId, nextMessageId, msg.SessionId, eventPublish.Subject, Args{eventPublish.Data, eventArgs}}
 				err = wf.publish(nextMsg, eventPublish.QueueId)
