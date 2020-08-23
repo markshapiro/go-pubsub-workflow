@@ -211,6 +211,10 @@ func (wf pubSubWorkflow) publishCalls(msg message, nextActions []Action) error {
 }
 
 func (wf pubSubWorkflow) emitEvents(msg message, nextActions []Action) error {
+	err := wf.storeEvents(msg, nextActions)
+	if err != nil {
+		return err
+	}
 
 	membersCmd := wf.redisConn.SMembers(fmt.Sprintf("session.%d.eventListeners", msg.SessionId))
 	if membersCmd.Err() != nil && membersCmd.Err() == redis.Nil {
@@ -218,7 +222,7 @@ func (wf pubSubWorkflow) emitEvents(msg message, nextActions []Action) error {
 	}
 	var eventListeners []EventListener
 
-	err := membersCmd.ScanSlice(&eventListeners)
+	err = membersCmd.ScanSlice(&eventListeners)
 	if err != nil {
 		return err
 	}
@@ -272,7 +276,7 @@ func (wf pubSubWorkflow) emitEvents(msg message, nextActions []Action) error {
 					return err
 				}
 
-				nextCallId := fmt.Sprintf("%d.event.%d", msg.MessageId, listener.EventListenerId)
+				nextCallId := fmt.Sprintf("event.%d", listener.EventListenerId)
 				nextMsg := message{nextCallId, nextMessageId, msg.SessionId, listener.Subject, Args{listener.Data, eventArgs}}
 				err = wf.publish(nextMsg, listener.QueueId)
 				if err != nil {
@@ -283,21 +287,22 @@ func (wf pubSubWorkflow) emitEvents(msg message, nextActions []Action) error {
 		}
 	}
 
-	var addEvents = []string{}
+	return nil
+}
 
+func (wf pubSubWorkflow) storeEvents(msg message, nextActions []Action) error {
+	var addEvents = []string{}
 	for _, action := range nextActions {
 		if action.Type == EmitEvent {
 			addEvents = append(addEvents, "'"+action.Event+"'", "'"+action.Data+"'")
 		}
 	}
-
 	if len(addEvents) > 0 {
 		cmd := wf.redisConn.Eval("return redis.call('HSET', "+fmt.Sprintf("'session.%d.events', ", msg.SessionId)+strings.Join(addEvents, ", ")+")", []string{})
 		if cmd.Err() != nil && cmd.Err() == redis.Nil {
 			return cmd.Err()
 		}
 	}
-
 	return nil
 }
 

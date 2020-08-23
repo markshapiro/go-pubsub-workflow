@@ -26,14 +26,16 @@ func main() {
 
 	var mywf wf.PubSubWorkflow
 
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 20; i++ {
 		mywf = runUserService()
 		defer mywf.Close()
 	}
 
-	mywf.Publish("registerUser", UserRegistration{"user 1", "user1@mail.com", "credit card 1", "/user1.123"}.toJson())
-	//mywf.Publish("registerUser", UserRegistration{"user 2", "user2@mail.com", "credit card 2", "/user2.456"}.toJson())
-	//mywf.Publish("registerUser", UserRegistration{"user 3", "user3@mail.com", "credit card 3", "/user2.456"}.toJson())
+	mywf.Publish("registerUser", UserRegistration{"user 1", "user1@mail.com", "credit card 1", "/user1.1111"}.toJson())
+	mywf.Publish("registerUser", UserRegistration{"user 2", "user2@mail.com", "credit card 2", "/user2.222"}.toJson())
+	mywf.Publish("registerUser", UserRegistration{"user 3", "user3@mail.com", "credit card 3", "/user2.3333333"}.toJson())
+	mywf.Publish("registerUser", UserRegistration{"user 4", "user4@mail.com", "credit card 4", "/user4.44444"}.toJson())
+	mywf.Publish("registerUser", UserRegistration{"user 5", "user5@mail.com", "credit card 5", "/user5.55"}.toJson())
 
 	select {}
 }
@@ -59,17 +61,9 @@ func runUserService() wf.PubSubWorkflow {
 	return wf
 }
 
-func randomTimeSleep() {
-	// s1 := rand.NewSource(time.Now().UnixNano())
-	// r1 := rand.New(s1)
-	// time.Sleep(time.Millisecond * time.Duration((r1.Intn(1) + 1)))
-}
-
 func registerUser(data string, events []wf.Event) ([]wf.Action, []wf.EventListener, error) {
-	//fmt.Println("registerUser:", data)
 	var user UserRegistration
 	user.fromJson(data)
-	randomTimeSleep()
 	return wf.PublishNext("verifyEmail", user.Email, "verifyCard", user.CreditCardInfo),
 		[]wf.EventListener{
 			wf.NewEventListener("finalize", data, "emailVerified", "cardVerified"),
@@ -79,19 +73,16 @@ func registerUser(data string, events []wf.Event) ([]wf.Action, []wf.EventListen
 
 func verifyEmail(data string, events []wf.Event) ([]wf.Action, []wf.EventListener, error) {
 	fmt.Println("verifyEmail:", data)
-	randomTimeSleep()
 	return wf.EmitEvents("emailVerified", data+" verified"), nil, nil
 }
 
 func verifyCard(data string, events []wf.Event) ([]wf.Action, []wf.EventListener, error) {
 	fmt.Println("verifyCard:", data)
-	randomTimeSleep()
 	return wf.EmitEvents("cardVerified", data+" verified"), nil, nil
 }
 
 func finalize(data string, events []wf.Event) ([]wf.Action, []wf.EventListener, error) {
-	//fmt.Println("###############################")
-	fmt.Println("##### FINALIZED:", data)
-	//fmt.Println("RECEIVED EVENTS: ", events)
+	fmt.Println("####################### FINALIZED:", data)
+	fmt.Println("####### RECEIVED EVENTS:", events)
 	return nil, nil, nil
 }
