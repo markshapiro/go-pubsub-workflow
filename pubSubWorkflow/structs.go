@@ -44,16 +44,9 @@ type Action struct {
 type EventTrigger struct {
 	Events         []string
 	EventTriggerId int64
+	QueueId        string `bson:"QueueId,omitempty"`
 	Subject        string
 	Data           string `bson:"Data,omitempty"`
-}
-
-func NewEventTrigger(Subject string, Data string, Events ...string) EventTrigger {
-	return EventTrigger{
-		Events:  Events,
-		Subject: Subject,
-		Data:    Data,
-	}
 }
 
 func (m EventTrigger) MarshalBinary() ([]byte, error) {

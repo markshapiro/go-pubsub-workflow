@@ -280,7 +280,7 @@ func (wf pubSubWorkflow) emitEvents(msg message, nextActions []Action) error {
 
 						nextCallId := fmt.Sprintf("%d.event.%d", msg.MessageId, trigger.EventTriggerId)
 						nextMsg := message{nextCallId, nextMessageId, msg.SessionId, trigger.Subject, Args{trigger.Data, args}}
-						err = wf.publish(nextMsg, "")
+						err = wf.publish(nextMsg, trigger.QueueId)
 						if err != nil {
 							return err
 						}
@@ -388,17 +388,29 @@ func PublishNext(data ...string) []Action {
 	var result []Action
 	for ind := range data {
 		if ind%2 == 0 {
-			dotSymbol := strings.Index(data[ind], ".")
-			if dotSymbol >= 0 {
-				queueId := data[ind][:dotSymbol]
-				subject := data[ind][dotSymbol+1:]
-				result = append(result, Action{Publish, queueId, "", subject, data[ind+1]})
-			} else {
-				result = append(result, Action{Publish, "", "", data[ind], data[ind+1]})
-			}
+			queueId, subject := getQueueAndSubject(data[ind])
+			result = append(result, Action{Publish, queueId, "", subject, data[ind+1]})
 		}
 	}
 	return result
+}
+
+func NewEventTrigger(subject string, data string, events ...string) EventTrigger {
+	queueId, subject := getQueueAndSubject(subject)
+	return EventTrigger{
+		Events:  events,
+		QueueId: queueId,
+		Subject: subject,
+		Data:    data,
+	}
+}
+
+func getQueueAndSubject(str string) (string, string) {
+	dotSymbol := strings.Index(str, ".")
+	if dotSymbol >= 0 {
+		return str[:dotSymbol], str[dotSymbol+1:]
+	}
+	return "", str
 }
 
 func EmitEvents(data ...string) []Action {
