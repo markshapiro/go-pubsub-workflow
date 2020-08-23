@@ -165,10 +165,10 @@ func (wf pubSubWorkflow) processMsg(msg message) error {
 		nextEventListeners = prevStoredResult.EventListeners
 	}
 
-	return wf.executeNextCalls(msg, nextActions, nextEventListeners)
+	return wf.processCallsAndApplyListeners(msg, nextActions, nextEventListeners)
 }
 
-func (wf pubSubWorkflow) executeNextCalls(msg message, nextActions []Action, nextEventListeners []EventListener) error {
+func (wf pubSubWorkflow) processCallsAndApplyListeners(msg message, nextActions []Action, nextEventListeners []EventListener) error {
 
 	for _, eventListener := range nextEventListeners {
 		cmd := wf.redisConn.SAdd(fmt.Sprintf("session.%d.eventListeners", msg.SessionId), eventListener)
