@@ -130,19 +130,19 @@ func (wf pubSubWorkflow) processMsg(msg message) error {
 		}
 	}
 
-	nextActions, nextEventListeners, err := handlerFn(msg.Args.Data, msg.Args.Events)
+	nextActions, nextPublishOnEventss, err := handlerFn(msg.Args.Data, msg.Args.Events)
 	if err != nil {
 		return err
 	}
 
-	for ind := range nextEventListeners {
-		nextEventListeners[ind].EventListenerId, err = wf.getUniqueNum()
+	for ind := range nextPublishOnEventss {
+		nextPublishOnEventss[ind].PublishOnEventsId, err = wf.getUniqueNum()
 		if err != nil {
 			return err
 		}
 	}
 
-	result := storedResult{nextActions, nextEventListeners}
+	result := storedResult{nextActions, nextPublishOnEventss}
 
 	storeCmd := wf.redisConn.HSetNX(fmt.Sprintf("call.%s.data", msg.CallId), "result", result)
 	if storeCmd.Err() != nil && cmd.Err() != redis.Nil {
@@ -162,15 +162,15 @@ func (wf pubSubWorkflow) processMsg(msg message) error {
 		}
 
 		nextActions = prevStoredResult.Actions
-		nextEventListeners = prevStoredResult.EventListeners
+		nextPublishOnEventss = prevStoredResult.PublishOnEventss
 	}
 
-	return wf.processCallsAndApplyListeners(msg, nextActions, nextEventListeners)
+	return wf.processCallsAndApplyListeners(msg, nextActions, nextPublishOnEventss)
 }
 
-func (wf pubSubWorkflow) processCallsAndApplyListeners(msg message, nextActions []Action, nextEventListeners []EventListener) error {
+func (wf pubSubWorkflow) processCallsAndApplyListeners(msg message, nextActions []Action, nextPublishOnEventss []PublishOnEvents) error {
 
-	for _, eventListener := range nextEventListeners {
+	for _, eventListener := range nextPublishOnEventss {
 		cmd := wf.redisConn.SAdd(fmt.Sprintf("session.%d.eventListeners", msg.SessionId), eventListener)
 		if cmd.Err() != nil && cmd.Err() == redis.Nil {
 			return cmd.Err()
@@ -220,7 +220,7 @@ func (wf pubSubWorkflow) emitEvents(msg message, nextActions []Action) error {
 	if membersCmd.Err() != nil && membersCmd.Err() == redis.Nil {
 		return membersCmd.Err()
 	}
-	var eventListeners []EventListener
+	var eventListeners []PublishOnEvents
 
 	err = membersCmd.ScanSlice(&eventListeners)
 	if err != nil {
@@ -269,7 +269,7 @@ func (wf pubSubWorkflow) emitEvents(msg message, nextActions []Action) error {
 					return err
 				}
 
-				nextCallId := fmt.Sprintf("event.%d", listener.EventListenerId)
+				nextCallId := fmt.Sprintf("event.%d", listener.PublishOnEventsId)
 				nextMsg := message{nextCallId, nextMessageId, msg.SessionId, listener.Subject, Args{listener.Data, eventArgs}}
 				err = wf.publish(nextMsg, listener.QueueId)
 				if err != nil {
@@ -419,9 +419,9 @@ func PublishNext(data ...string) []Action {
 	return result
 }
 
-func NewEventListener(dest string, data string, events ...string) EventListener {
+func NewPublishOnEvents(dest string, data string, events ...string) PublishOnEvents {
 	queueId, subject := getQueueAndSubject(dest)
-	return EventListener{
+	return PublishOnEvents{
 		Events:  events,
 		QueueId: queueId,
 		Subject: subject,
