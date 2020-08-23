@@ -135,8 +135,8 @@ func (wf pubSubWorkflow) processMsg(msg message) error {
 		return err
 	}
 
-	for _, eventTrigger := range nextEventTriggers {
-		eventTrigger.EventTriggerId, err = wf.getUniqueNum()
+	for ind := range nextEventTriggers {
+		nextEventTriggers[ind].EventTriggerId, err = wf.getUniqueNum()
 		if err != nil {
 			return err
 		}
@@ -169,12 +169,29 @@ func (wf pubSubWorkflow) processMsg(msg message) error {
 }
 
 func (wf pubSubWorkflow) triggerNextCalls(msg message, nextActions []Action, nextEventTriggers []EventTrigger) error {
-	subjectCounts := make(map[string]int)
 
 	for _, eventTrigger := range nextEventTriggers {
-		wf.redisConn.SAdd(fmt.Sprintf("session.%d.triggers", msg.SessionId), eventTrigger)
+		cmd := wf.redisConn.SAdd(fmt.Sprintf("session.%d.triggers", msg.SessionId), eventTrigger)
+		if cmd.Err() != nil && cmd.Err() == redis.Nil {
+			return cmd.Err()
+		}
 	}
 
+	err := wf.publishCalls(msg, nextActions)
+	if err != nil {
+		return err
+	}
+
+	err = wf.emitEvents(msg, nextActions)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (wf pubSubWorkflow) publishCalls(msg message, nextActions []Action) error {
+	subjectCounts := make(map[string]int)
 	for _, action := range nextActions {
 		if action.Type == Publish {
 			nextCallId := fmt.Sprintf("%d.publish.%s.%d", msg.MessageId, action.Subject, subjectCounts[action.Subject])
@@ -190,7 +207,10 @@ func (wf pubSubWorkflow) triggerNextCalls(msg message, nextActions []Action, nex
 			subjectCounts[action.Subject]++
 		}
 	}
+	return nil
+}
 
+func (wf pubSubWorkflow) emitEvents(msg message, nextActions []Action) error {
 	var addEvents = []string{"'HSET'", fmt.Sprintf("'session.%d.events'", msg.SessionId)}
 
 	for _, action := range nextActions {
@@ -271,7 +291,6 @@ func (wf pubSubWorkflow) triggerNextCalls(msg message, nextActions []Action, nex
 			}
 		}
 	}
-
 	return nil
 }
 

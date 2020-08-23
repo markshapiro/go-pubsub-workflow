@@ -48,7 +48,7 @@ func foo1(data string, events []pubSubWorkflow.Event) ([]pubSubWorkflow.Action, 
 	// 	return nil, nil, errors.New("test")
 	// }
 
-	// return pubSubWorkflow.PublishNext("foo2", "1122", "foo2", "111444", "foo3", "333"), nil, nil
+	//return pubSubWorkflow.PublishNext("foo2", "1122", "foo2", "111444", "foo3", "333"), nil, nil
 
 	return pubSubWorkflow.PublishNext("foo2", "1122", "foo3", "2233"),
 		[]pubSubWorkflow.EventTrigger{
@@ -62,11 +62,13 @@ func foo1(data string, events []pubSubWorkflow.Event) ([]pubSubWorkflow.Action, 
 func foo2(data string, events []pubSubWorkflow.Event) ([]pubSubWorkflow.Action, []pubSubWorkflow.EventTrigger, error) {
 	fmt.Println("####### foo2:", data)
 	return pubSubWorkflow.EmitEvents("AA", "data_AA"), nil, nil
+	//return nil, nil, nil
 }
 
 func foo3(data string, events []pubSubWorkflow.Event) ([]pubSubWorkflow.Action, []pubSubWorkflow.EventTrigger, error) {
 	fmt.Println("####### foo3:", data, events)
-	return pubSubWorkflow.EmitEvents("BB", "data_BB", "CC", "data_CC"), nil, nil
+	return pubSubWorkflow.EmitEvents("BB", "data_BB"), nil, nil
+	//return nil, nil, nil
 }
 
 func foo4(data string, events []pubSubWorkflow.Event) ([]pubSubWorkflow.Action, []pubSubWorkflow.EventTrigger, error) {
