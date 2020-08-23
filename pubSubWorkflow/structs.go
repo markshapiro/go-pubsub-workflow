@@ -63,8 +63,8 @@ type Event struct {
 }
 
 type storedResult struct {
-	Actions          []Action          `json:"Actions,omitempty"`
-	PublishOnEventss []PublishOnEvents `json:"PublishOnEventss,omitempty"`
+	Actions         []Action          `json:"Actions,omitempty"`
+	PublishOnEvents []PublishOnEvents `json:"PublishOnEvents,omitempty"`
 }
 
 func (m storedResult) MarshalBinary() ([]byte, error) {

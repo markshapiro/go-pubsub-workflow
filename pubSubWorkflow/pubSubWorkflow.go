@@ -15,7 +15,7 @@ import (
 
 var (
 	CALL_ALREADY_CREATED = errors.New("CALL_ALREADY_CREATED")
-	HANDLER_NOT_FOUND    = errors.New("METHOD_NOT_FOUND")
+	HANDLER_NOT_FOUND    = errors.New("HANDLER_NOT_FOUND")
 )
 
 func New(queueId string) PubSubWorkflow {
@@ -44,7 +44,7 @@ func (wf pubSubWorkflow) Connect(amqpUrl, redisUrl string) error {
 	}
 
 	if conf.String() != "config get appendonly: [appendonly yes]" {
-		fmt.Errorf("warning: redis appendonly is not set, it is recommended to set 'appendonly yes' for maximum durability")
+		fmt.Println(fmt.Errorf("Warning: redis appendonly is not set, it is recommended to set 'appendonly yes' for maximum durability"))
 	}
 
 	if err != nil {
@@ -73,7 +73,6 @@ func (wf pubSubWorkflow) StartListening() error {
 	}
 
 	for amqpMsg := range amqpMsgs {
-		//fmt.Println("Received a message: ", string(amqpMsg.Body))
 
 		var msg message
 
@@ -84,7 +83,11 @@ func (wf pubSubWorkflow) StartListening() error {
 
 		err = wf.processMsg(msg)
 		if err != nil {
+
 			if err == CALL_ALREADY_CREATED || err == HANDLER_NOT_FOUND {
+				if err == HANDLER_NOT_FOUND {
+					fmt.Println(fmt.Errorf("Error: method not found %s destined for queue %s", msg.Subject, wf.queueId))
+				}
 				amqpMsg.Reject(false)
 			} else {
 				amqpMsg.Nack(false, true)
@@ -130,19 +133,22 @@ func (wf pubSubWorkflow) processMsg(msg message) error {
 		}
 	}
 
-	nextActions, nextPublishOnEventss, err := handlerFn(msg.Args.Data, msg.Args.Events)
+	nextActions, nextPublishOnEvents, err := handlerFn(msg.Args.Data, msg.Args.Events)
 	if err != nil {
 		return err
 	}
 
-	for ind := range nextPublishOnEventss {
-		nextPublishOnEventss[ind].PublishOnEventsId, err = wf.getUniqueNum()
+	for ind := range nextPublishOnEvents {
+		nextPublishOnEvents[ind].PublishOnEventsId, err = wf.getUniqueNum()
+		if nextPublishOnEvents[ind].QueueId == "" {
+			nextPublishOnEvents[ind].QueueId = wf.queueId
+		}
 		if err != nil {
 			return err
 		}
 	}
 
-	result := storedResult{nextActions, nextPublishOnEventss}
+	result := storedResult{nextActions, nextPublishOnEvents}
 
 	storeCmd := wf.redisConn.HSetNX(fmt.Sprintf("call.%s.data", msg.CallId), "result", result)
 	if storeCmd.Err() != nil && cmd.Err() != redis.Nil {
@@ -162,15 +168,15 @@ func (wf pubSubWorkflow) processMsg(msg message) error {
 		}
 
 		nextActions = prevStoredResult.Actions
-		nextPublishOnEventss = prevStoredResult.PublishOnEventss
+		nextPublishOnEvents = prevStoredResult.PublishOnEvents
 	}
 
-	return wf.processCallsAndApplyListeners(msg, nextActions, nextPublishOnEventss)
+	return wf.processCallsAndApplyListeners(msg, nextActions, nextPublishOnEvents)
 }
 
-func (wf pubSubWorkflow) processCallsAndApplyListeners(msg message, nextActions []Action, nextPublishOnEventss []PublishOnEvents) error {
+func (wf pubSubWorkflow) processCallsAndApplyListeners(msg message, nextActions []Action, nextPublishOnEvents []PublishOnEvents) error {
 
-	for _, eventListener := range nextPublishOnEventss {
+	for _, eventListener := range nextPublishOnEvents {
 		cmd := wf.redisConn.SAdd(fmt.Sprintf("session.%d.eventListeners", msg.SessionId), eventListener)
 		if cmd.Err() != nil && cmd.Err() == redis.Nil {
 			return cmd.Err()
