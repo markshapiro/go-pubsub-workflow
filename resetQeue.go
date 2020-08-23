@@ -36,7 +36,7 @@ func main() {
 
 	select {}
 }
-func foo1(data string, events []wf.Event) ([]wf.Action, []wf.EventPublish, error) {
+func foo1(data string, events []wf.Event) ([]wf.Action, []wf.PublishTrigger, error) {
 	fmt.Println(" in foo1")
 	time.Sleep(time.Microsecond * 100)
 	return wf.PublishNext("foo1", data), nil, nil

@@ -41,19 +41,19 @@ type Action struct {
 	Data    string `json:"Data,omitempty"`
 }
 
-type EventPublish struct {
-	Events         []string
-	EventPublishId int64
-	QueueId        string `json:"QueueId,omitempty"`
-	Subject        string
-	Data           string `json:"Data,omitempty"`
+type PublishTrigger struct {
+	Events           []string
+	PublishTriggerId int64
+	QueueId          string `json:"QueueId,omitempty"`
+	Subject          string
+	Data             string `json:"Data,omitempty"`
 }
 
-func (m EventPublish) MarshalBinary() ([]byte, error) {
+func (m PublishTrigger) MarshalBinary() ([]byte, error) {
 	return json.Marshal(m)
 }
 
-func (m *EventPublish) UnmarshalBinary(data []byte) error {
+func (m *PublishTrigger) UnmarshalBinary(data []byte) error {
 	return json.Unmarshal(data, m)
 }
 
@@ -63,8 +63,8 @@ type Event struct {
 }
 
 type storedResult struct {
-	Actions         []Action       `json:"Actions,omitempty"`
-	PublishOnEvents []EventPublish `json:"PublishOnEvents,omitempty"`
+	Actions         []Action         `json:"Actions,omitempty"`
+	PublishTriggers []PublishTrigger `json:"PublishTriggers,omitempty"`
 }
 
 func (m storedResult) MarshalBinary() ([]byte, error) {
@@ -96,4 +96,4 @@ type pubSubWorkflow struct {
 	handlers  *[]handlerInfo
 }
 
-type handlerFunc func(string, []Event) ([]Action, []EventPublish, error)
+type handlerFunc func(string, []Event) ([]Action, []PublishTrigger, error)

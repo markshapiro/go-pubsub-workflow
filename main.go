@@ -39,7 +39,7 @@ func main() {
 
 //var count = 0
 
-func foo1(data string, events []wf.Event) ([]wf.Action, []wf.EventPublish, error) {
+func foo1(data string, events []wf.Event) ([]wf.Action, []wf.PublishTrigger, error) {
 	fmt.Println("####### foo1:", data)
 
 	// time.Sleep(time.Second * 1)
@@ -51,7 +51,7 @@ func foo1(data string, events []wf.Event) ([]wf.Action, []wf.EventPublish, error
 	//return wf.PublishNext("foo2", "1122", "foo2", "111444", "foo3", "333"), nil, nil
 
 	return wf.PublishNext("foo2", "1122", "foo3", "2233"),
-		[]wf.EventPublish{
+		[]wf.PublishTrigger{
 			wf.PublishOnEvents("foo4", "data from foo1 #1", "AA", "BB"),
 			wf.PublishOnEvents("foo4", "data from foo1 #2", "BB", "CC", "DD"),
 			wf.PublishOnEvents("foo5", "data from foo1 #3", "BB", "CC"),
@@ -59,24 +59,24 @@ func foo1(data string, events []wf.Event) ([]wf.Action, []wf.EventPublish, error
 		nil
 }
 
-func foo2(data string, events []wf.Event) ([]wf.Action, []wf.EventPublish, error) {
+func foo2(data string, events []wf.Event) ([]wf.Action, []wf.PublishTrigger, error) {
 	fmt.Println("####### foo2:", data)
 	return wf.EmitEvents("AA", "data_AA", "DD", "data_DD"), nil, nil
 	//return nil, nil, nil
 }
 
-func foo3(data string, events []wf.Event) ([]wf.Action, []wf.EventPublish, error) {
+func foo3(data string, events []wf.Event) ([]wf.Action, []wf.PublishTrigger, error) {
 	fmt.Println("####### foo3:", data, events)
 	return wf.EmitEvents("BB", "data_BB", "CC", "data_CC"), nil, nil
 	//return nil, nil, nil
 }
 
-func foo4(data string, events []wf.Event) ([]wf.Action, []wf.EventPublish, error) {
+func foo4(data string, events []wf.Event) ([]wf.Action, []wf.PublishTrigger, error) {
 	fmt.Println("####### foo4:", data, events)
 	return nil, nil, nil
 }
 
-func foo5(data string, events []wf.Event) ([]wf.Action, []wf.EventPublish, error) {
+func foo5(data string, events []wf.Event) ([]wf.Action, []wf.PublishTrigger, error) {
 	fmt.Println("####### foo5:", data, events)
 	return nil, nil, nil
 }

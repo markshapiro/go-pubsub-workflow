@@ -137,27 +137,27 @@ func (wf pubSubWorkflow) processMsg(msg message) error {
 		}
 	}
 
-	nextActions, nextPublishOnEvents, err := handlerFn(msg.Args.Data, msg.Args.Events)
+	nextActions, nextPublishTriggers, err := handlerFn(msg.Args.Data, msg.Args.Events)
 	if err != nil {
 		return err
 	}
 
-	for ind := range nextPublishOnEvents {
+	for ind := range nextPublishTriggers {
 		/*
-			all on event publish triggers should get unique id once, to be used as CallId (of message of triggered publish),
-			this removes possibility of duplicate call when there's race condition between event emmiters,
-			since storing events and checking for publishes to be triggered is not atomic.
+			all publish triggers should be assigned unique id, to be used as CallId (of message of triggered publish),
+			this removes possibility of task call duplication when there's race condition between event emmiters,
+			since storing events and checking for publishes to be trigger is not atomic.
 		*/
-		nextPublishOnEvents[ind].EventPublishId, err = wf.getUniqueNum()
-		if nextPublishOnEvents[ind].QueueId == "" {
-			nextPublishOnEvents[ind].QueueId = wf.queueId
+		nextPublishTriggers[ind].PublishTriggerId, err = wf.getUniqueNum()
+		if nextPublishTriggers[ind].QueueId == "" {
+			nextPublishTriggers[ind].QueueId = wf.queueId
 		}
 		if err != nil {
 			return err
 		}
 	}
 
-	result := storedResult{nextActions, nextPublishOnEvents}
+	result := storedResult{nextActions, nextPublishTriggers}
 
 	storeCmd := wf.redisConn.HSetNX(fmt.Sprintf("call.%s.data", msg.CallId), "result", result)
 	if storeCmd.Err() != nil && cmd.Err() != redis.Nil {
@@ -183,16 +183,16 @@ func (wf pubSubWorkflow) processMsg(msg message) error {
 		}
 
 		nextActions = prevStoredResult.Actions
-		nextPublishOnEvents = prevStoredResult.PublishOnEvents
+		nextPublishTriggers = prevStoredResult.PublishTriggers
 	}
 
-	return wf.processCallsAndApplyPublishOnEvents(msg, nextActions, nextPublishOnEvents)
+	return wf.processCallsAndStoreTriggers(msg, nextActions, nextPublishTriggers)
 }
 
-func (wf pubSubWorkflow) processCallsAndApplyPublishOnEvents(msg message, nextActions []Action, nextPublishOnEvents []EventPublish) error {
+func (wf pubSubWorkflow) processCallsAndStoreTriggers(msg message, nextActions []Action, nextPublishTriggers []PublishTrigger) error {
 
-	for _, publishOnEvents := range nextPublishOnEvents {
-		cmd := wf.redisConn.SAdd(fmt.Sprintf("session.%d.eventPublishes", msg.SessionId), publishOnEvents)
+	for _, publishTrigger := range nextPublishTriggers {
+		cmd := wf.redisConn.SAdd(fmt.Sprintf("session.%d.publishTriggers", msg.SessionId), publishTrigger)
 		if cmd.Err() != nil && cmd.Err() == redis.Nil {
 			return cmd.Err()
 		}
@@ -240,29 +240,29 @@ func (wf pubSubWorkflow) emitEvents(msg message, nextActions []Action) error {
 		return err
 	}
 
-	membersCmd := wf.redisConn.SMembers(fmt.Sprintf("session.%d.eventPublishes", msg.SessionId))
+	membersCmd := wf.redisConn.SMembers(fmt.Sprintf("session.%d.publishTriggers", msg.SessionId))
 	if membersCmd.Err() != nil && membersCmd.Err() == redis.Nil {
 		return membersCmd.Err()
 	}
-	var allEventPublishes []EventPublish
+	var allPublishesTriggers []PublishTrigger
 
-	err = membersCmd.ScanSlice(&allEventPublishes)
+	err = membersCmd.ScanSlice(&allPublishesTriggers)
 	if err != nil {
 		return err
 	}
 
-	for _, eventPublish := range allEventPublishes {
+	for _, publishTrigger := range allPublishesTriggers {
 		var eventArgs []Event
-		for _, event := range eventPublish.Events {
+		for _, triggeringEvent := range publishTrigger.Events {
 			for _, action := range nextActions {
-				if action.Type == EmitEvent && action.Event == event {
+				if action.Type == EmitEvent && action.Event == triggeringEvent {
 					eventArgs = append(eventArgs, Event{action.Event, action.Data})
 				}
 			}
 		}
 		if len(eventArgs) > 0 {
 			var eventsNotInActions = []string{}
-			for _, event := range eventPublish.Events {
+			for _, event := range publishTrigger.Events {
 				exists := false
 				for _, arg := range eventArgs {
 					if arg.Name == event {
@@ -287,21 +287,20 @@ func (wf pubSubWorkflow) emitEvents(msg message, nextActions []Action) error {
 				}
 			}
 
-			if len(eventArgs) == len(eventPublish.Events) {
+			if len(eventArgs) == len(publishTrigger.Events) {
 				nextMessageId, err := wf.getUniqueNum()
 				if err != nil {
 					return err
 				}
 
 				// as mentioned above, msg.CallId should be calculated deterministically
-				nextCallId := fmt.Sprintf("event.%d", eventPublish.EventPublishId)
-				nextMsg := message{nextCallId, nextMessageId, msg.SessionId, eventPublish.Subject, Args{eventPublish.Data, eventArgs}}
-				err = wf.publish(nextMsg, eventPublish.QueueId)
+				nextCallId := fmt.Sprintf("event.%d", publishTrigger.PublishTriggerId)
+				nextMsg := message{nextCallId, nextMessageId, msg.SessionId, publishTrigger.Subject, Args{publishTrigger.Data, eventArgs}}
+				err = wf.publish(nextMsg, publishTrigger.QueueId)
 				if err != nil {
 					return err
 				}
 			}
-
 		}
 	}
 
@@ -444,9 +443,9 @@ func PublishNext(data ...string) []Action {
 	return result
 }
 
-func PublishOnEvents(dest string, data string, events ...string) EventPublish {
+func PublishOnEvents(dest string, data string, events ...string) PublishTrigger {
 	queueId, subject := getQueueAndSubject(dest)
-	return EventPublish{
+	return PublishTrigger{
 		Events:  events,
 		QueueId: queueId,
 		Subject: subject,

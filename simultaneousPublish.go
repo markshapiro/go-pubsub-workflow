@@ -83,32 +83,32 @@ func runDocumentGenService() wf.PubSubWorkflow {
 	return wf
 }
 
-func registerUser(data string, events []wf.Event) ([]wf.Action, []wf.EventPublish, error) {
+func registerUser(data string, events []wf.Event) ([]wf.Action, []wf.PublishTrigger, error) {
 	var user UserRegistration
 	user.fromJson(data)
 	return wf.PublishNext("verifyEmail", user.Email, "verifyCard", user.CreditCardInfo, "documentGenService.generateDoc", user.Name),
-		[]wf.EventPublish{
+		[]wf.PublishTrigger{
 			wf.PublishOnEvents("finalize", data, "emailVerified", "cardVerified", "documentGenerated"),
 		},
 		nil
 }
 
-func verifyEmail(data string, events []wf.Event) ([]wf.Action, []wf.EventPublish, error) {
+func verifyEmail(data string, events []wf.Event) ([]wf.Action, []wf.PublishTrigger, error) {
 	fmt.Println("verifyEmail:", data)
 	return wf.EmitEvents("emailVerified", data+" verified"), nil, nil
 }
 
-func verifyCard(data string, events []wf.Event) ([]wf.Action, []wf.EventPublish, error) {
+func verifyCard(data string, events []wf.Event) ([]wf.Action, []wf.PublishTrigger, error) {
 	fmt.Println("verifyCard:", data)
 	return wf.EmitEvents("cardVerified", data+" verified"), nil, nil
 }
 
-func finalize(data string, events []wf.Event) ([]wf.Action, []wf.EventPublish, error) {
+func finalize(data string, events []wf.Event) ([]wf.Action, []wf.PublishTrigger, error) {
 	fmt.Printf("#################################\nFINALIZED: %v\nRECEIVED EVENTS: %v\n", data, events)
 	return nil, nil, nil
 }
 
-func generateDoc(data string, events []wf.Event) ([]wf.Action, []wf.EventPublish, error) {
+func generateDoc(data string, events []wf.Event) ([]wf.Action, []wf.PublishTrigger, error) {
 	fmt.Println("generateDoc:", data)
 	return wf.EmitEvents("documentGenerated", "document for user "+data), nil, nil
 }
