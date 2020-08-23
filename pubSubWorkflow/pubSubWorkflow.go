@@ -211,24 +211,11 @@ func (wf pubSubWorkflow) publishCalls(msg message, nextActions []Action) error {
 }
 
 func (wf pubSubWorkflow) emitEvents(msg message, nextActions []Action) error {
-	var addEvents = []string{"'HSET'", fmt.Sprintf("'session.%d.events'", msg.SessionId)}
-
-	for _, action := range nextActions {
-		if action.Type == EmitEvent {
-			addEvents = append(addEvents, "'"+action.Event+"'", "'"+action.Data+"'")
-		}
-	}
-
-	cmd := wf.redisConn.Eval("return redis.call("+strings.Join(addEvents, ", ")+")", []string{})
-	if cmd.Err() != nil && cmd.Err() == redis.Nil {
-		return cmd.Err()
-	}
 
 	membersCmd := wf.redisConn.SMembers(fmt.Sprintf("session.%d.eventListeners", msg.SessionId))
 	if membersCmd.Err() != nil && membersCmd.Err() == redis.Nil {
 		return membersCmd.Err()
 	}
-
 	var eventListeners []EventListener
 
 	err := membersCmd.ScanSlice(&eventListeners)
@@ -236,59 +223,81 @@ func (wf pubSubWorkflow) emitEvents(msg message, nextActions []Action) error {
 		return err
 	}
 
-	var handledListeners = make(map[int]bool)
-
-	for _, action := range nextActions {
-		if action.Type == EmitEvent {
-			for ind, listener := range eventListeners {
-				if handledListeners[ind] {
-					continue
-				}
-				var commonEventExists = false
-				for _, listeningingEvent := range listener.Events {
-					if action.Event == listeningingEvent {
-						commonEventExists = true
-					}
-				}
-				if commonEventExists {
-					var getEventsData = []string{}
-					for _, listeningingEvent := range listener.Events {
-						getEventsData = append(getEventsData, "'"+listeningingEvent+"'")
-					}
-
-					cmd := wf.redisConn.Eval("return redis.call('HMGET', "+fmt.Sprintf("'session.%d.events',", msg.SessionId)+strings.Join(getEventsData, ", ")+")", []string{})
-					if cmd.Err() != nil && cmd.Err() == redis.Nil {
-						return cmd.Err()
-					}
-
-					values := cmd.Val().([]interface{})
-
-					var args []Event
-					for valInd, val := range values {
-						if val != nil {
-							args = append(args, Event{listener.Events[valInd], val.(string)})
-						}
-					}
-
-					if len(values) == len(args) {
-						nextMessageId, err := wf.getUniqueNum()
-						if err != nil {
-							return err
-						}
-
-						nextCallId := fmt.Sprintf("%d.event.%d", msg.MessageId, listener.EventListenerId)
-						nextMsg := message{nextCallId, nextMessageId, msg.SessionId, listener.Subject, Args{listener.Data, args}}
-						err = wf.publish(nextMsg, listener.QueueId)
-						if err != nil {
-							return err
-						}
-						handledListeners[ind] = true
-					}
-
+	for _, listener := range eventListeners {
+		var eventArgs []Event
+		for _, listeningEvent := range listener.Events {
+			for _, action := range nextActions {
+				if action.Type == EmitEvent && action.Event == listeningEvent {
+					eventArgs = append(eventArgs, Event{action.Event, action.Data})
 				}
 			}
 		}
+		if len(eventArgs) > 0 {
+			var missingEvents = []string{}
+			for _, listeningEvent := range listener.Events {
+				exists := false
+				for _, arg := range eventArgs {
+					if arg.Name == listeningEvent {
+						exists = true
+					}
+				}
+				if !exists {
+					missingEvents = append(missingEvents, listeningEvent)
+				}
+			}
+
+			if len(missingEvents) > 0 {
+
+				var getEventsData = []string{}
+
+				for _, eventName := range missingEvents {
+					getEventsData = append(getEventsData, "'"+eventName+"'")
+				}
+
+				cmd := wf.redisConn.Eval("return redis.call('HMGET', "+fmt.Sprintf("'session.%d.events', ", msg.SessionId)+strings.Join(getEventsData, ", ")+")", []string{})
+				if cmd.Err() != nil && cmd.Err() == redis.Nil {
+					return cmd.Err()
+				}
+				values := cmd.Val().([]interface{})
+				for valInd, val := range values {
+					if val != nil {
+						eventArgs = append(eventArgs, Event{missingEvents[valInd], val.(string)})
+					}
+				}
+			}
+
+			if len(eventArgs) == len(listener.Events) {
+				nextMessageId, err := wf.getUniqueNum()
+				if err != nil {
+					return err
+				}
+
+				nextCallId := fmt.Sprintf("%d.event.%d", msg.MessageId, listener.EventListenerId)
+				nextMsg := message{nextCallId, nextMessageId, msg.SessionId, listener.Subject, Args{listener.Data, eventArgs}}
+				err = wf.publish(nextMsg, listener.QueueId)
+				if err != nil {
+					return err
+				}
+			}
+
+		}
 	}
+
+	var addEvents = []string{}
+
+	for _, action := range nextActions {
+		if action.Type == EmitEvent {
+			addEvents = append(addEvents, "'"+action.Event+"'", "'"+action.Data+"'")
+		}
+	}
+
+	if len(addEvents) > 0 {
+		cmd := wf.redisConn.Eval("return redis.call('HSET', "+fmt.Sprintf("'session.%d.events', ", msg.SessionId)+strings.Join(addEvents, ", ")+")", []string{})
+		if cmd.Err() != nil && cmd.Err() == redis.Nil {
+			return cmd.Err()
+		}
+	}
+
 	return nil
 }
 

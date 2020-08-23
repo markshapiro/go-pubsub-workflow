@@ -26,7 +26,7 @@ func main() {
 
 	var mywf wf.PubSubWorkflow
 
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 5; i++ {
 		mywf = runUserService()
 		defer mywf.Close()
 	}
@@ -66,7 +66,7 @@ func randomTimeSleep() {
 }
 
 func registerUser(data string, events []wf.Event) ([]wf.Action, []wf.EventListener, error) {
-	fmt.Println("registerUser:", data)
+	//fmt.Println("registerUser:", data)
 	var user UserRegistration
 	user.fromJson(data)
 	randomTimeSleep()
@@ -90,8 +90,8 @@ func verifyCard(data string, events []wf.Event) ([]wf.Action, []wf.EventListener
 }
 
 func finalize(data string, events []wf.Event) ([]wf.Action, []wf.EventListener, error) {
-	fmt.Println("###############################")
-	fmt.Println("FINALIZED:", data)
-	fmt.Println("RECEIVED EVENTS: ", events)
+	//fmt.Println("###############################")
+	fmt.Println("##### FINALIZED:", data)
+	//fmt.Println("RECEIVED EVENTS: ", events)
 	return nil, nil, nil
 }
