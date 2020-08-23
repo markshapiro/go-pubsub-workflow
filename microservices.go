@@ -70,7 +70,7 @@ func main() {
 	select {}
 }
 
-func microservice1method(data string, events []wf.Event) ([]wf.Action, []wf.PublishOnEvents, error) {
+func microservice1method(data string, events []wf.Event) ([]wf.Action, []wf.EventPublish, error) {
 	fmt.Println("in microservice 1:", data)
 	time.Sleep(time.Second * 1)
 	if data == "from micoservice 2" {
@@ -79,7 +79,7 @@ func microservice1method(data string, events []wf.Event) ([]wf.Action, []wf.Publ
 	return wf.PublishNext("microservice2.handler2", "from micoservice 1"), nil, nil
 }
 
-func microservice2method(data string, events []wf.Event) ([]wf.Action, []wf.PublishOnEvents, error) {
+func microservice2method(data string, events []wf.Event) ([]wf.Action, []wf.EventPublish, error) {
 	fmt.Println("in microservice 2:", data)
 	time.Sleep(time.Second * 1)
 	if data == "last message from micoservice 1" {

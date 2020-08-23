@@ -139,7 +139,7 @@ func (wf pubSubWorkflow) processMsg(msg message) error {
 	}
 
 	for ind := range nextPublishOnEvents {
-		nextPublishOnEvents[ind].PublishOnEventsId, err = wf.getUniqueNum()
+		nextPublishOnEvents[ind].EventPublishId, err = wf.getUniqueNum()
 		if nextPublishOnEvents[ind].QueueId == "" {
 			nextPublishOnEvents[ind].QueueId = wf.queueId
 		}
@@ -171,13 +171,13 @@ func (wf pubSubWorkflow) processMsg(msg message) error {
 		nextPublishOnEvents = prevStoredResult.PublishOnEvents
 	}
 
-	return wf.processCallsAndApplyListeners(msg, nextActions, nextPublishOnEvents)
+	return wf.processCallsAndApplyPublishOnEvents(msg, nextActions, nextPublishOnEvents)
 }
 
-func (wf pubSubWorkflow) processCallsAndApplyListeners(msg message, nextActions []Action, nextPublishOnEvents []PublishOnEvents) error {
+func (wf pubSubWorkflow) processCallsAndApplyPublishOnEvents(msg message, nextActions []Action, nextPublishOnEvents []EventPublish) error {
 
-	for _, eventListener := range nextPublishOnEvents {
-		cmd := wf.redisConn.SAdd(fmt.Sprintf("session.%d.eventListeners", msg.SessionId), eventListener)
+	for _, publishOnEvents := range nextPublishOnEvents {
+		cmd := wf.redisConn.SAdd(fmt.Sprintf("session.%d.eventPublishes", msg.SessionId), publishOnEvents)
 		if cmd.Err() != nil && cmd.Err() == redis.Nil {
 			return cmd.Err()
 		}
@@ -222,37 +222,37 @@ func (wf pubSubWorkflow) emitEvents(msg message, nextActions []Action) error {
 		return err
 	}
 
-	membersCmd := wf.redisConn.SMembers(fmt.Sprintf("session.%d.eventListeners", msg.SessionId))
+	membersCmd := wf.redisConn.SMembers(fmt.Sprintf("session.%d.eventPublishes", msg.SessionId))
 	if membersCmd.Err() != nil && membersCmd.Err() == redis.Nil {
 		return membersCmd.Err()
 	}
-	var eventListeners []PublishOnEvents
+	var allEventPublishes []EventPublish
 
-	err = membersCmd.ScanSlice(&eventListeners)
+	err = membersCmd.ScanSlice(&allEventPublishes)
 	if err != nil {
 		return err
 	}
 
-	for _, listener := range eventListeners {
+	for _, eventPublish := range allEventPublishes {
 		var eventArgs []Event
-		for _, listeningEvent := range listener.Events {
+		for _, event := range eventPublish.Events {
 			for _, action := range nextActions {
-				if action.Type == EmitEvent && action.Event == listeningEvent {
+				if action.Type == EmitEvent && action.Event == event {
 					eventArgs = append(eventArgs, Event{action.Event, action.Data})
 				}
 			}
 		}
 		if len(eventArgs) > 0 {
 			var eventsNotInActions = []string{}
-			for _, listeningEvent := range listener.Events {
+			for _, event := range eventPublish.Events {
 				exists := false
 				for _, arg := range eventArgs {
-					if arg.Name == listeningEvent {
+					if arg.Name == event {
 						exists = true
 					}
 				}
 				if !exists {
-					eventsNotInActions = append(eventsNotInActions, listeningEvent)
+					eventsNotInActions = append(eventsNotInActions, event)
 				}
 			}
 
@@ -269,15 +269,15 @@ func (wf pubSubWorkflow) emitEvents(msg message, nextActions []Action) error {
 				}
 			}
 
-			if len(eventArgs) == len(listener.Events) {
+			if len(eventArgs) == len(eventPublish.Events) {
 				nextMessageId, err := wf.getUniqueNum()
 				if err != nil {
 					return err
 				}
 
-				nextCallId := fmt.Sprintf("event.%d", listener.PublishOnEventsId)
-				nextMsg := message{nextCallId, nextMessageId, msg.SessionId, listener.Subject, Args{listener.Data, eventArgs}}
-				err = wf.publish(nextMsg, listener.QueueId)
+				nextCallId := fmt.Sprintf("event.%d", eventPublish.EventPublishId)
+				nextMsg := message{nextCallId, nextMessageId, msg.SessionId, eventPublish.Subject, Args{eventPublish.Data, eventArgs}}
+				err = wf.publish(nextMsg, eventPublish.QueueId)
 				if err != nil {
 					return err
 				}
@@ -425,9 +425,9 @@ func PublishNext(data ...string) []Action {
 	return result
 }
 
-func NewPublishOnEvents(dest string, data string, events ...string) PublishOnEvents {
+func PublishOnEvents(dest string, data string, events ...string) EventPublish {
 	queueId, subject := getQueueAndSubject(dest)
-	return PublishOnEvents{
+	return EventPublish{
 		Events:  events,
 		QueueId: queueId,
 		Subject: subject,

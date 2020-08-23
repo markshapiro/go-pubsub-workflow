@@ -34,16 +34,16 @@ func main() {
 	select {}
 }
 
-func start(data string, events []wf.Event) ([]wf.Action, []wf.PublishOnEvents, error) {
+func start(data string, events []wf.Event) ([]wf.Action, []wf.EventPublish, error) {
 	fmt.Printf("in start")
 	return wf.PublishNext("compute", "task_1", "compute", "task_2", "compute", "task_3", "compute", "task_4", "compute", "task_5"),
-		[]wf.PublishOnEvents{
-			wf.NewPublishOnEvents("finalize", "some data", "task_1_done", "task_2_done", "task_3_done", "task_4_done", "task_5_done"),
+		[]wf.EventPublish{
+			wf.PublishOnEvents("finalize", "some data", "task_1_done", "task_2_done", "task_3_done", "task_4_done", "task_5_done"),
 		},
 		nil
 }
 
-func compute(taskName string, events []wf.Event) ([]wf.Action, []wf.PublishOnEvents, error) {
+func compute(taskName string, events []wf.Event) ([]wf.Action, []wf.EventPublish, error) {
 	s1 := rand.NewSource(time.Now().UnixNano())
 	r1 := rand.New(s1)
 
@@ -57,7 +57,7 @@ func compute(taskName string, events []wf.Event) ([]wf.Action, []wf.PublishOnEve
 	return wf.EmitEvents(taskName+"_done", randomNum), nil, nil
 }
 
-func finalize(data string, events []wf.Event) ([]wf.Action, []wf.PublishOnEvents, error) {
+func finalize(data string, events []wf.Event) ([]wf.Action, []wf.EventPublish, error) {
 	fmt.Printf("in foo3: data = %s\n", data)
 	for _, ev := range events {
 		fmt.Printf("received num %s from event %s\n", ev.Data, ev.Name)
