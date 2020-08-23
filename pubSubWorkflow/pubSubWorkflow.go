@@ -73,7 +73,7 @@ func (wf pubSubWorkflow) StartListening() error {
 	}
 
 	for amqpMsg := range amqpMsgs {
-		fmt.Println("Received a message: ", string(amqpMsg.Body))
+		//fmt.Println("Received a message: ", string(amqpMsg.Body))
 
 		var msg message
 

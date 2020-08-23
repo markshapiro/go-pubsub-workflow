@@ -52,9 +52,9 @@ func foo1(data string, events []pubSubWorkflow.Event) ([]pubSubWorkflow.Action, 
 
 	return pubSubWorkflow.PublishNext("foo2", "1122", "foo3", "2233"),
 		[]pubSubWorkflow.EventListener{
-			pubSubWorkflow.NewEventListener("foo4", "data from foo1", "AA", "BB"),
-			pubSubWorkflow.NewEventListener("foo4", "data from foo1", "BB", "CC", "DD"),
-			pubSubWorkflow.NewEventListener("foo5", "data from foo1", "BB", "CC"),
+			pubSubWorkflow.NewEventListener("foo4", "data from foo1 #1", "AA", "BB"),
+			pubSubWorkflow.NewEventListener("foo4", "data from foo1 #2", "BB", "CC", "DD"),
+			pubSubWorkflow.NewEventListener("foo5", "data from foo1 #3", "BB", "CC"),
 		},
 		nil
 }
