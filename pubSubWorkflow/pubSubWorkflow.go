@@ -382,6 +382,25 @@ func (wf pubSubWorkflow) Close() error {
 	return nil
 }
 
+func (wf pubSubWorkflow) Reset() error {
+	_, err := wf.amqpConn.GetChannel().QueuePurge(wf.queueId, true)
+	amqpMsgs, err := wf.amqpConn.GetChannel().Consume(
+		wf.queueId, // queue
+		"",         // consumer
+		true,       // auto-ack
+		false,      // exclusive
+		false,      // no-local
+		true,       // no-wait
+		nil,        // args
+	)
+	if err != nil {
+		return err
+	}
+	for _ = range amqpMsgs {
+	}
+	return nil
+}
+
 func PublishNext(data ...string) []Action {
 	var result []Action
 	for ind := range data {

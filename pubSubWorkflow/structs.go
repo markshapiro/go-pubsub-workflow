@@ -85,6 +85,7 @@ type PubSubWorkflow interface {
 	StartListening() error
 	Subscribe(string, handlerFunc) error
 	Publish(string, string, ...string) error
+	Reset() error
 	Close() error
 }
 
