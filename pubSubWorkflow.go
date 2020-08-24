@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strings"
 
-	amqpWrapper "go-pubsub-workflow/amqp"
+	amqpWrapper "github.com/markshapiro/go-pubsub-workflow/amqp"
 
-	redisWrapper "go-pubsub-workflow/redis"
+	redisWrapper "github.com/markshapiro/go-pubsub-workflow/redis"
 
 	"github.com/go-redis/redis"
 	"github.com/streadway/amqp"

@@ -1,4 +1,4 @@
-module go-pubsub-workflow
+module github.com/markshapiro/go-pubsub-workflow
 
 go 1.13
 

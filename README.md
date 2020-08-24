@@ -88,7 +88,7 @@ this way when handler finishes, 3 consequtive parallel tasks will be scheduled t
 <br/>the string specified after name of each task will be passed as first `data` argument in their handler.
 <br>you can return different tasks to publish in different cases, but if the handler is requeued after the `PublishNext` result was already stored internally, the new result will be ignored for sake of consistency, since some calls could have already been published before the requeue.
 
-let's see now how can we join parallel processes by introducing events.
+let's see now how we can join parallel processes by introducing events.
 <br/>by defining event triggered task (returned as 2nd parameter) that will run once all 3 events `event_1`, `event_2` and `event_3` are emitted, more preciselly the task will run exactly once when the last of them is emitted:
 ```go
 func someTask(data string, events []wf.Event) ([]wf.Action, []wf.PublishTrigger, error) {
@@ -100,7 +100,7 @@ func someTask(data string, events []wf.Event) ([]wf.Action, []wf.PublishTrigger,
     nil
 }
 ```
-to emit event, return it in first parameter together same as with `PublishOnEvents`
+to emit event, return it as first parameter together same as with `PublishOnEvents`
 ```go
 func someOtherTask(taskName string, events []wf.Event) ([]wf.Action, []wf.PublishTrigger, error) {
     // function body
@@ -117,7 +117,7 @@ func someOtherTask(taskName string, events []wf.Event) ([]wf.Action, []wf.Publis
     ), nil, nil
 }
 ```
-once the joining task is run, it will receive string value (under `data`) specified right after task name in `PublishOnEvents`,
+once the joining task runs, it will receive string value (under `data`) specified right after task name in `PublishOnEvents`,
 and array of events (in our case of length 3) as second argument, each containing name of event and data passed right after that event name in `EmitEvents`:
 ```go
 func someTask(data string, events []wf.Event) ([]wf.Action, []wf.PublishTrigger, error) {
@@ -125,14 +125,16 @@ func someTask(data string, events []wf.Event) ([]wf.Action, []wf.PublishTrigger,
     return nil, nil, nil
 }
 ```
-in order to run task triggered by events, make sure that the last of the events is emitted in one of the subsequent tasks, it doesnt have to be in the tasks called directly after, but can also be emitted many subsequent tasks later.
+in order to run task triggered by events, make sure that the last of the events is emitted in one of the subsequent tasks, it doesnt have to be directly after, but can also be emitted many steps later.
 
 note on events: tasks are only tiggered by events emitted by task calls that can be traced back to same publish handler call as the task call that defined `PublishOnEvents`, meaning emitting event by calling another `wfInstance.Publish` won't trigger task in current one, this is because it would be hard to scale tasks globally between all workflow sessions, for this reason names of events can be static, next `wfInstance.Publish` will ignore all events called in previous publish handler calls.
-<br/>Events do transcend microservice queues though, if you define a trigger and then call task from different microservice that emits triggering event few steps later, it will still trigger the task.
+<br/>Events do transcend microservice queues though, if you define a trigger and then call task of different microservice that emits triggering event few steps later, it will still trigger the task.
 
 in order to call task of other microservice that listens to different queue, provide its queue name before the dot as prefix:
 ```go
-wfInstance.Publish("other_service_queue.task1", "some data")
+func someTask(data string, events []wf.Event) ([]wf.Action, []wf.PublishTrigger, error) {
+    return wf.PublishNext("other_service_queue.task1", "some data"), nil, nil
+}
 ```
 this way handler of `task1` of microservice that listens to queue `other_service_queue` will be called:
 ```go
