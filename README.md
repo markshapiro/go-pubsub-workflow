@@ -128,7 +128,7 @@ func someTask(data string, events []wf.Event) ([]wf.Action, []wf.PublishTrigger,
 in order to run task triggered by events, make sure that the last of the events is emitted in one of the subsequent tasks, it doesnt have to be directly after, but can also be emitted many steps later.
 
 note on events: tasks are only tiggered by events emitted by task calls that can be traced back to same publish handler call as the task call that defined `PublishOnEvents`, meaning emitting event by calling another `wfInstance.Publish` won't trigger task in current one, this is because it would be hard to scale tasks globally between all workflow sessions, for this reason names of events can be static, next `wfInstance.Publish` will ignore all events called in previous publish handler calls.
-<br/>Events do transcend microservice queues though, if you define a trigger and then call task of different microservice that emits triggering event few steps later, it will still trigger the task.
+<br/>Events do transcend microservice queues though, if you define a trigger and then call task of different microservice (in one of subsequent tasks few steps later) that emits triggering event, it will still trigger the task (whose trigger was defined few steps earlier).
 
 in order to call task of other microservice that listens to different queue, provide its queue name before the dot as prefix:
 ```go
