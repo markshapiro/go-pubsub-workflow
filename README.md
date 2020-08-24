@@ -120,8 +120,11 @@ func someOtherTask(taskName string, events []wf.Event) ([]wf.Action, []wf.Publis
 once the joining task runs, it will receive string value (under `data`) specified right after task name in `PublishOnEvents`,
 and array of events (in our case of length 3) as second argument, each containing name of event and data passed right after that event name in `EmitEvents`:
 ```go
-func someTask(data string, events []wf.Event) ([]wf.Action, []wf.PublishTrigger, error) {
-    // function body
+func joinedTaskName(data string, events []wf.Event) ([]wf.Action, []wf.PublishTrigger, error) {
+    for _, event := range events {
+        // event.Name - name of one of the events that triggered joinedTaskName
+        // event.Data - value that was passed with event in emit
+    }
     return nil, nil, nil
 }
 ```
