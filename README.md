@@ -40,7 +40,7 @@ wfInstance.Subscribe("task2", task2)
 ...
 wfInstance.Subscribe("taskN", taskN)
 ```
-define handler functions from previous step for each task and which consequtive tasks should be ran:
+define handler functions from previous step for each task and which consequtive tasks should run:
 ``` go
 func task1(data string, events []wf.Event) ([]wf.Action, []wf.PublishTrigger, error) {
     return wf.PublishNext("task2", "some data", "task3", "some data"), nil, nil
