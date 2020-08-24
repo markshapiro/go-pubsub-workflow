@@ -12,7 +12,7 @@ the library also introduces task triggering events, to implement joins of parall
 ### how it works
 
 each task call and its subsequent task calls are assigned a unique identifier that is used to determine if it has already been scheduled.
-the task ids will always be assigned with same values they were before the reprocessing, this way when a task crashes in the middle scheduling of next tasks, the next requeue will reschedule the rest without scheduling the ones that were already called.
+the task ids will always be assigned the same values they were before the reprocessing, this way when a task crashes in the middle scheduling of next tasks, the next requeue will reschedule the rest without scheduling the ones that were already called.
 
 ### setup
 
