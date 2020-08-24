@@ -100,7 +100,7 @@ func someTask(data string, events []wf.Event) ([]wf.Action, []wf.PublishTrigger,
     nil
 }
 ```
-to emit event, return it as first parameter together same as with `PublishOnEvents`
+to emit event, return it as first parameter same as with `PublishOnEvents`
 ```go
 func someOtherTask(taskName string, events []wf.Event) ([]wf.Action, []wf.PublishTrigger, error) {
     // function body
