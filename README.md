@@ -150,7 +150,7 @@ wfInstance.Subscribe("task1", task1)
 - introduce usage of redis pipelines
 - use bson.Marshal/Unmarshal instead of json when storing data to redis/sending content
 - global events (currently tasks are only triggered by event emitters that trace back to the same publish handler calls, in other words within the same process "session")
-<br/>this is very usefull when dealing with external events (such as for example intercepting delivered package events in purchase workflow)
+<br/>global events would be very usefull when dealing with external events (such as for example intercepting delivered package events in purchase workflow)
 - cleanup of space/unused data
 - currently there is a possibility that a task will overlap with subsequent/next tasks, this can happen when the handler call is requeued after it already published messages to run subsequent tasks.
 - possiblity to use redis for pubsub and removing the need for amqp.
