@@ -92,12 +92,12 @@ let's see now how can we join parallel processes by introducing events.
 <br/>by defining event triggered task (returned as 2nd parameter) that will run once all 3 events `event_1`, `event_2` and `event_3` are emitted, more preciselly the task will run exactly once when the last of them is emitted:
 ```go
 func someTask(data string, events []wf.Event) ([]wf.Action, []wf.PublishTrigger, error) {
-	// function body
-	return nil,
-		[]wf.PublishTrigger{
-			wf.PublishOnEvents("joinedTaskName", "some data", "event_1", "event_2", "event_3"),
-		},
-		nil
+    // function body
+    return nil,
+    []wf.PublishTrigger{
+        wf.PublishOnEvents("joinedTaskName", "some data", "event_1", "event_2", "event_3"),
+    },
+    nil
 }
 ```
 to emit event, return it in first parameter together same as with `PublishOnEvents`
@@ -121,8 +121,8 @@ once the joining task is run, it will receive string value (under `data`) specif
 and array of events (in our case of length 3) as second argument, each containing name of event and data passed right after that event name in `EmitEvents`:
 ```go
 func someTask(data string, events []wf.Event) ([]wf.Action, []wf.PublishTrigger, error) {
-	// function body
-	return nil, nil, nil
+    // function body
+    return nil, nil, nil
 }
 ```
 in order to run task triggered by events, make sure that the last of the events is emitted in one of the subsequent tasks, it doesnt have to be in the tasks called directly after, but can also be emitted many subsequent tasks later.
