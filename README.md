@@ -89,7 +89,7 @@ this way when handler finishes, 3 consequtive parallel tasks will be scheduled t
 <br>you can return different tasks to publish in different cases, but if the handler is requeued after the `PublishNext` result was already stored internally, the new result will be ignored for sake of consistency, since some calls could have already been published before the requeue.
 
 let's see now how we can join parallel processes by introducing events.
-<br/>by defining event triggered task (returned as 2nd parameter) that will run once all 3 events `event_1`, `event_2` and `event_3` are emitted, more precisely the task will run exactly once when the last of them is emitted:
+<br/>by defining event triggered task (returned as 2nd parameter) that will run once all 3 events `event_1`, `event_2` and `event_3` are emitted:
 ```go
 func someTask(data string, events []wf.Event) ([]wf.Action, []wf.PublishTrigger, error) {
     // function body
@@ -100,16 +100,26 @@ func someTask(data string, events []wf.Event) ([]wf.Action, []wf.PublishTrigger,
     nil
 }
 ```
-to emit event, return it as first parameter same as with `PublishOnEvents`
+to emit event, return it as first parameter using `EmitEvents` just like with `PublishNext`:
 ```go
-func someOtherTask(taskName string, events []wf.Event) ([]wf.Action, []wf.PublishTrigger, error) {
+func someLaterTask1(taskName string, events []wf.Event) ([]wf.Action, []wf.PublishTrigger, error) {
     // function body
-    return wf.EmitEvents("event_1", "event data"), nil, nil
+    return wf.EmitEvents("event_1", "event data 1"), nil, nil
+}
+
+func someLaterTask2(taskName string, events []wf.Event) ([]wf.Action, []wf.PublishTrigger, error) {
+    // function body
+    return wf.EmitEvents("event_2", "event data 2"), nil, nil
+}
+
+func someLaterTask3(taskName string, events []wf.Event) ([]wf.Action, []wf.PublishTrigger, error) {
+    // function body
+    return wf.EmitEvents("event_3", "event data 3"), nil, nil
 }
 ```
 to emit events and also publish next tasks you can do:
 ```go
-func someOtherTask(taskName string, events []wf.Event) ([]wf.Action, []wf.PublishTrigger, error) {
+func someLaterTask(taskName string, events []wf.Event) ([]wf.Action, []wf.PublishTrigger, error) {
     // function body
     return append(
         wf.EmitEvents("event_1", "event data"),
@@ -117,8 +127,7 @@ func someOtherTask(taskName string, events []wf.Event) ([]wf.Action, []wf.Publis
     ), nil, nil
 }
 ```
-once the joining task runs, it will receive string value (under `data`) specified right after task name in `PublishOnEvents`,
-and array of events (in our case of length 3) as second argument, each containing name of event and data passed right after that event name in `EmitEvents`:
+once the joining task is triggered, it will receive string value (under `data`) specified right after task name in `PublishOnEvents`, and array of events (in our case of length 3) as second argument, each containing name of event and data passed in `EmitEvents`:
 ```go
 func joinedTaskName(data string, events []wf.Event) ([]wf.Action, []wf.PublishTrigger, error) {
     for _, event := range events {
@@ -131,8 +140,8 @@ func joinedTaskName(data string, events []wf.Event) ([]wf.Action, []wf.PublishTr
 in order to run task triggered by events, make sure that the last of the events is emitted after `PublishTrigger` has been returned & set,
 it can also happen in a parallel operation and not only in subsequent tasks.
 
-note on events: tasks are only tiggered by events emitted by task calls that can be traced back to same publish handler call as the task call that defined `PublishOnEvents`, meaning emitting event by calling another `wfInstance.Publish` won't trigger task in current one, this is because it would be hard to scale tasks globally between all workflow sessions, for this reason names of events can be static, next `wfInstance.Publish` will ignore all events called in previous publish handler calls.
-<br/>Events do transcend microservice queues though, if you define a trigger and then call task of different microservice (in one of subsequent tasks few steps later) that emits triggering event, it will still trigger the task (whose trigger was defined few steps earlier).
+<b/>note on events:</b> tasks are only triggered by events emitted by other task calls that trace back to same publish handler call as the task call that defined `PublishOnEvents`, meaning that emitting event by calling another `wfInstance.Publish` won't trigger the task, this is because it would be hard to scale tasks globally between all publish sessions, for this reason names of events can remain static, next `wfInstance.Publish` will ignore all events called in previous publish handler calls.
+<br/>Events do transcend microservice queues though, if you define a trigger and then call task of different microservice (in one of subsequent tasks or in a parallel task that traces back to same publish handler call) that emits triggering event, it will still trigger the task (whose trigger was defined earlier).
 
 in order to call task of other microservice that listens to different queue, provide its queue name before the dot as prefix:
 ```go
@@ -140,7 +149,7 @@ func someTask(data string, events []wf.Event) ([]wf.Action, []wf.PublishTrigger,
     return wf.PublishNext("other_service_queue.task1", "some data"), nil, nil
 }
 ```
-this way handler of `task1` of microservice that listens to queue `other_service_queue` will be called:
+then the handler of `task1` of microservice that listens to queue `other_service_queue` will be called:
 ```go
 wfInstance := wf.New("other_service_queue")
 wfInstance.Subscribe("task1", task1)
@@ -149,7 +158,7 @@ wfInstance.Subscribe("task1", task1)
 ### known bugs / improvements
 - introduce usage of redis pipelines
 - use better marshaler than json when storing data to redis/publishing
-- global events (currently tasks are only triggered by event emitters that trace back to the same publish handler calls, in other words within the same process "session")
+- global events (currently tasks are only triggered by event emitters that trace back to the same publish handler calls, in other words within the same process session)
 <br/>global events would be very usefull when dealing with external events (such as for example intercepting delivered package events in purchase workflow)
 - cleanup of space/unused data
 - currently there is a possibility that a task will overlap with subsequent/next tasks, this can happen when the handler call is requeued after it already published messages to run subsequent tasks.
