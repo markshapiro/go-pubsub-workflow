@@ -112,7 +112,7 @@ to emit events and also publish next tasks you can do:
 func someOtherTask(taskName string, events []wf.Event) ([]wf.Action, []wf.PublishTrigger, error) {
     // function body
     return append(
-        wf.EmitEvents("event_1", result),
+        wf.EmitEvents("event_1", "event data"),
         wf.PublishNext( ... )...
     ), nil, nil
 }
