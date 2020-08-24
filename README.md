@@ -140,7 +140,7 @@ func joinedTaskName(data string, events []wf.Event) ([]wf.Action, []wf.PublishTr
 in order to run task triggered by events, make sure that the last of the events is emitted after `PublishTrigger` has been returned & set,
 it can also happen in a parallel operation and not only in subsequent tasks.
 
-<b/>note on events:</b> tasks are only triggered by events emitted by other task calls that trace back to same publish handler call as the task call that defined `PublishOnEvents`, meaning that emitting event by calling another `wfInstance.Publish` won't trigger the task, this is because it would be hard to scale tasks globally between all publish sessions, for this reason names of events can remain static, next `wfInstance.Publish` will ignore all events called in previous publish handler calls.
+<b/>note on events:</b> tasks are only triggered by events emitted by other task calls that trace back to same publish handler call as the task call that returned `PublishOnEvents`, meaning that emitting event by calling another `wfInstance.Publish` won't trigger the task, this is because it would be hard to scale tasks globally between all publish sessions, for this reason names of events can remain static, next `wfInstance.Publish` will ignore all events called in previous publish handler calls.
 <br/>Events do transcend microservice queues though, if you define a trigger and then call task of different microservice (in one of subsequent tasks or in a parallel task that traces back to same publish handler call) that emits triggering event, it will still trigger the task (whose trigger was defined earlier).
 
 in order to call task of other microservice that listens to different queue, provide its queue name before the dot as prefix:
