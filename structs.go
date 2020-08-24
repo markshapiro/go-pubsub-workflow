@@ -2,7 +2,8 @@ package pubSubWorkflow
 
 import (
 	"encoding/json"
-	amqpWrapper "go-pubsub-workflow/amqp"
+
+	amqpWrapper "github.com/markshapiro/go-pubsub-workflow/amqp"
 
 	"github.com/go-redis/redis"
 )
