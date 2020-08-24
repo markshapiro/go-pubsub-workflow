@@ -1,6 +1,6 @@
 # go-pubsub-workflow
 
-a durable distributed pubsub with option to construct dynamic workflows (condition based process forks & joins)
+a durable distributed pubsub to construct dynamic workflows (condition based process forks & joins)
 
 each task within workflow is ran by republishing messages to execute next tasks once the first task (also ran by publish) finishes.
 <br>this ensures that each task within workflow is reprocessed if service crashes, and the next will run when the first one completes.
@@ -71,7 +71,7 @@ wfInstance.Publish("task1", "some data")
 
 ### define workflow
 
-let's define a simple process forking:
+let's create a simple process fork:
 ```go
 func task1(data string, events []wf.Event) ([]wf.Action, []wf.PublishTrigger, error) {
     //
