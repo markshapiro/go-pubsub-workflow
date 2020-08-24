@@ -89,7 +89,7 @@ this way when handler finishes, 3 consequtive parallel tasks will be scheduled t
 <br>you can return different tasks to publish in different cases, but if the handler is requeued after the `PublishNext` result was already stored internally, the new result will be ignored for sake of consistency, since some calls could have already been published before the requeue.
 
 let's see now how we can join parallel processes by introducing events.
-<br/>by defining event triggered task (returned as 2nd parameter) that will run once all 3 events `event_1`, `event_2` and `event_3` are emitted, more preciselly the task will run exactly once when the last of them is emitted:
+<br/>by defining event triggered task (returned as 2nd parameter) that will run once all 3 events `event_1`, `event_2` and `event_3` are emitted, more precisely the task will run exactly once when the last of them is emitted:
 ```go
 func someTask(data string, events []wf.Event) ([]wf.Action, []wf.PublishTrigger, error) {
     // function body
