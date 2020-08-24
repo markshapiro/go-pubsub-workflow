@@ -2,7 +2,7 @@
 
 a durable distributed pubsub with option to construct dynamic workflows (condition based process forks & joins)
 
-each task within workflow is ran by republishing a messages to execute next tasks once the first task (also ran by publish) finishes.
+each task within workflow is ran by republishing a message to execute next tasks once the first task (also ran by publish) finishes.
 <br>this ensures that each task within workflow is reprocessed if service crashes, and the next will run when the first one completes.
 
 the library leverages rabbitmq for its durability and redis for its distributed key value store to give means to publish subsequent tasks exactly once, by preventing duplicate task execution when the previous task is requeued & reprocessed and publishes subsequent tasks twice.
