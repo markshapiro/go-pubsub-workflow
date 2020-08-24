@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	wf "go-pubsub-workflow/pubSubWorkflow"
+	wf "github.com/markshapiro/go-pubsub-workflow"
 )
 
 type UserRegistration struct {

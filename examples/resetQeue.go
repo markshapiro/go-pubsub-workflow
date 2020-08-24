@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	wf "go-pubsub-workflow/pubSubWorkflow"
+	wf "github.com/markshapiro/go-pubsub-workflow"
 	"time"
 )
 

@@ -2,8 +2,9 @@ package main
 
 import (
 	"fmt"
-	wf "go-pubsub-workflow/pubSubWorkflow"
 	"time"
+
+	wf "github.com/markshapiro/go-pubsub-workflow"
 )
 
 func main() {

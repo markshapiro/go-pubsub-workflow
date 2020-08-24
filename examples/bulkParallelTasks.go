@@ -3,9 +3,10 @@ package main
 import (
 	"errors"
 	"fmt"
-	wf "go-pubsub-workflow/pubSubWorkflow"
 	"math/rand"
 	"time"
+
+	wf "github.com/markshapiro/go-pubsub-workflow"
 )
 
 func main() {
