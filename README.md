@@ -1,5 +1,7 @@
 # go-pubsub-workflow
 
+![alt text](https://github.com/markshapiro/go-pubsub-workflow/blob/master/diagram.jpg)
+
 a durable distributed pubsub to construct dynamic workflows (condition based process forks & joins)
 
 each task within workflow is ran by republishing messages to execute next tasks once the first task (also ran by publish) finishes.
