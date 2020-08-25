@@ -6,7 +6,7 @@ each task within workflow is ran by republishing messages to execute next tasks 
 
 the library leverages rabbitmq for its durability and redis for its distributed key value store to give means to publish subsequent tasks exactly once, by preventing duplicate task execution when the previous task is requeued & reprocessed and publishes subsequent tasks twice.
 
-the library also introduces task triggering events, to implement joins of parallel processes, each parallel task can then emit an event once it completes, and together with events emitted by other parallel tasks triggers a subsequent (joining) task that runs once all parallel processes complete.
+the library also introduces task triggering events, to implement joins of parallel processes, each parallel task can then emit an event once it completes, and together with events emitted by other parallel tasks triggers a subsequent (joined) task that runs once all parallel processes complete.
 
 ### how it works
 
@@ -99,26 +99,26 @@ func someTask(data string, events []wf.Event) ([]wf.Action, []wf.PublishTrigger,
     nil
 }
 ```
-to emit event, return it as first parameter using `EmitEvents` just like with `PublishNext`:
+now you can fork 3 parallel tasks (or even run one after another, order of emits doesn't matter) and return `EmitEvents` as first parameter just like with `PublishNext` to trigger `joinedTaskName`:
 ```go
-func someLaterTask1(taskName string, events []wf.Event) ([]wf.Action, []wf.PublishTrigger, error) {
+func someParallelTask1(taskName string, events []wf.Event) ([]wf.Action, []wf.PublishTrigger, error) {
     // function body
     return wf.EmitEvents("event_1", "event data 1"), nil, nil
 }
 
-func someLaterTask2(taskName string, events []wf.Event) ([]wf.Action, []wf.PublishTrigger, error) {
+func someParallelTask2(taskName string, events []wf.Event) ([]wf.Action, []wf.PublishTrigger, error) {
     // function body
     return wf.EmitEvents("event_2", "event data 2"), nil, nil
 }
 
-func someLaterTask3(taskName string, events []wf.Event) ([]wf.Action, []wf.PublishTrigger, error) {
+func someParallelTask3(taskName string, events []wf.Event) ([]wf.Action, []wf.PublishTrigger, error) {
     // function body
     return wf.EmitEvents("event_3", "event data 3"), nil, nil
 }
 ```
 to emit events and also publish next tasks you can do:
 ```go
-func someLaterTask(taskName string, events []wf.Event) ([]wf.Action, []wf.PublishTrigger, error) {
+func someParallelTask(taskName string, events []wf.Event) ([]wf.Action, []wf.PublishTrigger, error) {
     // function body
     return append(
         wf.EmitEvents("event_1", "event data"),
@@ -126,7 +126,7 @@ func someLaterTask(taskName string, events []wf.Event) ([]wf.Action, []wf.Publis
     ), nil, nil
 }
 ```
-once the joining task is triggered, it will receive string value (under `data`) specified right after task name in `PublishOnEvents`, and array of events (in our case of length 3) as second argument, each containing name of event and data passed in `EmitEvents`:
+once the joined task is triggered, it will receive string value (under `data`) specified right after task name in `PublishOnEvents`, and array of events (in our case of length 3) as second argument, each containing name of event and data passed in `EmitEvents`:
 ```go
 func joinedTaskName(data string, events []wf.Event) ([]wf.Action, []wf.PublishTrigger, error) {
     for _, event := range events {
@@ -136,8 +136,7 @@ func joinedTaskName(data string, events []wf.Event) ([]wf.Action, []wf.PublishTr
     return nil, nil, nil
 }
 ```
-in order to run task triggered by events, make sure that the last of the events is emitted after `PublishTrigger` has been returned & set,
-it can also happen in a parallel operation and not only in subsequent tasks.
+in order to run task triggered by events, make sure that the last of the events is emitted after `PublishTrigger` has been returned & set, it can also happen in a parallel operation and not only in subsequent tasks.
 
 <b/>note on events:</b> tasks are only triggered by events emitted by other task calls that trace back to same publish handler call as the task call that returned `PublishOnEvents`, meaning that emitting event by calling another `wfInstance.Publish` won't trigger the task, this is because it would be hard to scale events globally between all publish sessions, for this reason names of events can remain static, next `wfInstance.Publish` will ignore all events called in previous publish handler calls.
 <br/>Events do transcend microservice queues though, if you define a trigger and then call task of different microservice (in one of subsequent tasks or in a parallel task that traces back to same publish handler call) that emits triggering event, it will still trigger the task (whose trigger was defined earlier).
