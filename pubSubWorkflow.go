@@ -146,7 +146,7 @@ func (wf pubSubWorkflow) processMsg(msg message) error {
 		/*
 			all publish triggers should be assigned unique id, to be used as CallId (of message of triggered publish),
 			this removes possibility of task call duplication when there's race condition between event emitters,
-			since storing events and checking for publishes to be trigger is not atomic.
+			since storing emitted events and then checking for next publishes to trigger is not atomic.
 		*/
 		nextPublishTriggers[ind].PublishTriggerId, err = wf.getUniqueNum()
 		if nextPublishTriggers[ind].QueueId == "" {
