@@ -85,7 +85,7 @@ func task1(data string, events []wf.Event) ([]wf.Action, []wf.PublishTrigger, er
     ), nil, nil
 }
 ```
-this way when handler finishes, 3 consequtive parallel tasks will be scheduled to run exactly once, even if requeue happens.
+this way when handler finishes, 3 parallel tasks will be scheduled to run exactly once, even if requeue happens.
 <br/>the string specified after name of each task will be passed as first `data` argument in their handler.
 <br>you can return different tasks to publish in different cases, but if the handler is requeued after the `PublishNext` result was already stored internally, the new result will be ignored for sake of consistency, since some calls could have already been published before the requeue.
 
