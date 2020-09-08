@@ -48,7 +48,7 @@ func task1(data string, events []wf.Event) ([]wf.Action, []wf.PublishTrigger, er
 }
 
 func task2(data string, events []wf.Event) ([]wf.Action, []wf.PublishTrigger, error) {
-    return wf.PublishNext("task4", "some data"), nil, nil
+    return wf.PublishNext("task3", "some data"), nil, nil
 }
 ```
 connect & listen to calls:
